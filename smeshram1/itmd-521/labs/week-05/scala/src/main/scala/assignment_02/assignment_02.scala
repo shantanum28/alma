@@ -34,7 +34,7 @@ object assignment_02 {
 
       // Load JSON data
       val jsonPath = args(0)
-      
+
       val schema = Encoders.product[DeviceIoTData].schema
 
       val df = spark.read.schema(schema).json(jsonPath)
