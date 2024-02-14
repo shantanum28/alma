@@ -94,7 +94,7 @@ object assignment_02 {
         avg("temp").alias("avg_temp"),
         avg("c02_level").alias("avg_c02_level"),
         avg("humidity").alias("avg_humidity")
-      ).sort(desc("avg_temp")).show(truncate = false)
+      ).sort(desc("avg_temp")).show(10, truncate = false)
 
         // +------------------------------+------------------+------------------+------------------+
         // |cn                            |avg_temp          |avg_c02_level     |avg_humidity      |
