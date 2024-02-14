@@ -151,7 +151,7 @@ if __name__ == "__main__":
     # Answer:
     print("Question 6:")
     correlation_df = fire_calls_df.groupBy('Neighborhood', 'Zipcode').agg({'NumAlarms': 'sum'})
-    correlation_df.show(truncate=False)
+    correlation_df.show(10, truncate=False)
 
     # +--------------------------+-------+--------------+
     # |Neighborhood              |Zipcode|sum(NumAlarms)|
@@ -166,16 +166,6 @@ if __name__ == "__main__":
     # |Russian Hill              |94109  |2279          |
     # |None                      |94124  |7             |
     # |Chinatown                 |94133  |1874          |
-    # |Pacific Heights           |94115  |2111          |
-    # |Oceanview/Merced/Ingleside|94127  |12            |
-    # |Potrero Hill              |94103  |5             |
-    # |Inner Sunset              |94117  |225           |
-    # |Golden Gate Park          |94117  |107           |
-    # |None                      |NULL   |143           |
-    # |Noe Valley                |94131  |764           |
-    # |Western Addition          |94117  |317           |
-    # |McLaren Park              |94112  |36            |
-    # |Outer Richmond            |94121  |4155          |
     # +--------------------------+-------+--------------+
 
     # Question 7: How can we use Parquet files or SQL tables to store this data and read it back?
