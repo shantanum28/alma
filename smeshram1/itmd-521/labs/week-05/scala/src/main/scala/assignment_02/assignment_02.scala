@@ -2,6 +2,24 @@ import org.apache.spark.sql.{SparkSession, functions}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 
+case class DeviceIoTData(
+  battery_level: Long,
+  c02_level: Long,
+  cca2: String,
+  cca3: String,
+  cn: String,
+  device_id: Long,
+  device_name: String,
+  humidity: Long,
+  ip: String,
+  latitude: Double,
+  lcd: String,
+  longitude: Double,
+  scale: String,
+  temp: Long,
+  timestamp: Long
+)
+
 object assignment_02 {
   def main(args: Array[String]): Unit = {
     if (args.length != 1) {
@@ -16,22 +34,8 @@ object assignment_02 {
 
       // Load JSON data
       val jsonPath = args(0)
-      val schema = new StructType()
-        .add("device_id", IntegerType)
-        .add("device_name", StringType)
-        .add("ip", StringType)
-        .add("cca2", StringType)
-        .add("cca3", StringType)
-        .add("cn", StringType)
-        .add("latitude", DoubleType)
-        .add("longitude", DoubleType)
-        .add("scale", StringType)
-        .add("temp", IntegerType)
-        .add("humidity", IntegerType)
-        .add("battery_level", IntegerType)
-        .add("c02_level", IntegerType)
-        .add("lcd", StringType)
-        .add("timestamp", LongType)
+      
+      val schema = Encoders.product[DeviceIoTData].schema
 
       val df = spark.read.schema(schema).json(jsonPath)
 
