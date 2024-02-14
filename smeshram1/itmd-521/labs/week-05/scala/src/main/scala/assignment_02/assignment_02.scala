@@ -1,4 +1,4 @@
-import org.apache.spark.sql.{SparkSession, functions}
+import org.apache.spark.sql.{SparkSession, functions, Encoders}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 
