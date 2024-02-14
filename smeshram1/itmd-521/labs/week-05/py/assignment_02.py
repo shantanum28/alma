@@ -119,13 +119,22 @@ if __name__ == "__main__":
     # Question 4: Which neighborhoods had the worst response times to fire calls in 2018?
     # Answer:
     print("Question 4:")
-    fire_calls_df.filter(col('CallDate').contains('2018')).groupBy('Neighborhood').agg({'Delay': 'avg'}).sort('avg(Delay)', ascending=False).show(1, truncate=False)
+    fire_calls_df.filter(col('CallDate').contains('2018')).groupBy('Neighborhood').agg({'Delay': 'avg'}).sort('avg(Delay)', ascending=False).show(10, truncate=False)
 
-    # +------------+-----------------+
-    # |Neighborhood|avg(Delay)       |
-    # +------------+-----------------+
-    # |Chinatown   |6.190314101143033|
-    # +------------+-----------------+
+    # +------------------------------+-----------------+
+    # |Neighborhood                  |avg(Delay)       |
+    # +------------------------------+-----------------+
+    # |Chinatown                     |6.190314101143033|
+    # |Presidio                      |5.829227011272873|
+    # |Treasure Island               |5.453703684111436|
+    # |McLaren Park                  |4.74404764175415 |
+    # |Bayview Hunters Point         |4.620561962212182|
+    # |Presidio Heights              |4.594131482319093|
+    # |Inner Sunset                  |4.438095217981896|
+    # |Inner Richmond                |4.364728709292966|
+    # |Financial District/South Beach|4.344084616885593|
+    # |Haight Ashbury                |4.266428579390049|
+    # +------------------------------+-----------------+
 
     # Question 5: Which week in the year in 2018 had the most fire calls?
     # Answer:
