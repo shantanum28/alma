@@ -88,12 +88,21 @@ if __name__ == "__main__":
     # Question 2: What months within the year 2018 saw the highest number of fire calls?
     # Answer:
     print("Question 2:")
-    fire_calls_df.filter(col('CallDate').contains('2018')).groupBy(date_format('CallDate', 'MMM').alias('Month')).count().sort('count', ascending=False).show(1, truncate=False)
+    fire_calls_df.filter(col('CallDate').contains('2018')).groupBy(date_format('CallDate', 'MMM').alias('Month')).count().sort('count', ascending=False).show(10, truncate=False)
 
     # +-----+-----+
     # |Month|count|
     # +-----+-----+
     # |Oct  |1068 |
+    # |May  |1047 |
+    # |Mar  |1029 |
+    # |Aug  |1021 |
+    # |Jan  |1007 |
+    # |Jun  |974  |
+    # |Jul  |974  |
+    # |Sep  |951  |
+    # |Apr  |947  |
+    # |Feb  |919  |
     # +-----+-----+
 
     # Question 3: Which neighborhood in San Francisco generated the most fire calls in 2018?
