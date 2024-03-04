@@ -22,8 +22,8 @@ object assignment_03 {
       departuresDF.createOrReplaceTempView("departures")
 
       val query1Result = departuresDF
-        .filter("Delay > 0")
-        .groupBy("Origin", "Dest")
+        .filter("delay > 0")
+        .groupBy("origin", "destination")
         .agg(count("*").alias("total_delays"))
         .orderBy(desc("total_delays"))
         .limit(10)
@@ -32,10 +32,10 @@ object assignment_03 {
 
       // Part I - Query 2
       val query2Result = departuresDF
-        .withColumn("Flight_Delays", when(col("Delay") > 360, "Very Long Delays")
-          .when(col("Delay") > 120 && col("Delay") <= 360, "Long Delays")
+        .withColumn("Flight_Delays", when(col("delay") > 360, "Very Long Delays")
+          .when(col("delay") > 120 && col("delay") <= 360, "Long Delays")
           .otherwise("Other Delays"))
-        .select("Origin", "Dest", "Delay", "Flight_Delays")
+        .select("origin", "destination", "delay", "Flight_Delays")
         .limit(10)
 
       query2Result.show()
@@ -44,7 +44,7 @@ object assignment_03 {
       departuresDF.write.mode("overwrite").saveAsTable("us_delay_flights_tbl")
 
       val chicagoFlights = departuresDF
-        .filter("Origin = 'ORD' AND Month = 3 AND Day >= 1 AND Day <= 15")
+        .filter("origin = 'ORD' AND month = 3 AND day >= 1 AND day <= 15")
         .limit(5)
       chicagoFlights.createOrReplaceTempView("chicago_flights_view")
       chicagoFlights.show()
@@ -57,8 +57,8 @@ object assignment_03 {
 
       // Part III - Reading and writing DataFrame
       val departuresSchema = StructType(Seq(
-        StructField("Date", DateType),
-        StructField("Delay", IntegerType),
+        StructField("date", DateType),
+        StructField("delay", IntegerType),
         // Add other schema fields here
       ))
 
@@ -73,7 +73,7 @@ object assignment_03 {
 
       // Part IV - Reading Parquet file and filtering ORD records
       val parquetDF = spark.read.parquet("departuredelays.parquet")
-      val ordDepartures = parquetDF.filter("Origin = 'ORD'")
+      val ordDepartures = parquetDF.filter("origin = 'ORD'")
       ordDepartures.write.mode("overwrite").parquet("orddeparturedelays.parquet")
       ordDepartures.show(10)
     } finally {
