@@ -30,8 +30,8 @@ object assignment_03 {
   val winterMonthExpr = (month(col("date")) >= 12) || (month(col("date")) <= 2)
   val holidayExpr = dayofweek(col("date")).isin(1, 7)
 
-  df.withColumn("Winter_Month", when(winterMonthExpr, lit("Yes")).otherwise(lit("No")))
-    .withColumn("Holiday", when(holidayExpr, lit("Yes")).otherwise(lit("No")))
+  df.withColumn("Winter_Month", when(winterMonthExpr, lit("Yes").cast(StringType)).otherwise(lit("No").cast(StringType)))
+    .withColumn("Holiday", when(holidayExpr, lit("Yes").cast(StringType)).otherwise(lit("No").cast(StringType)))
     .groupBy(date_format(col("date"), "MM-dd").alias("month_day"), col("Winter_Month"), col("Holiday"))
     .count()
     .orderBy(col("count").desc())
@@ -88,7 +88,7 @@ object assignment_03 {
 
   def main(args: Array[String]): Unit = {
     if (args.length != 1) {
-      println("Usage: spark-submit assignment_03 <file_path>")
+      println("Usage: spark-submit FlightDelayAnalysis <file_path>")
       sys.exit(-1)
     }
 
