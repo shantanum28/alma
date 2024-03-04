@@ -1,116 +1,119 @@
-import org.apache.spark.sql.{SparkSession, DataFrame}
+import org.apache.spark.sql.{SparkSession, functions}
+import org.apache.spark.sql.types.{StructType, StructField, StringType, IntegerType}
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types.{StructType, StructField, DateType, IntegerType, StringType}
 
-object Assignment03 {
-
+object assignment_03 {
   def initializeSparkSession(appName: String): SparkSession = {
     SparkSession.builder.appName(appName).getOrCreate()
   }
 
-  def readCsvToDataFrame(spark: SparkSession, filePath: String): DataFrame = {
-    spark.read.option("header", "true").option("inferSchema", "true").csv(filePath)
+  def readCsvToDataFrame(spark: SparkSession, filePath: String) = {
+    spark.read.csv(filePath).toDF()
   }
 
-  def defineDataFrameSchema(): StructType = {
-    new StructType()
-      .add(StructField("date", StringType, nullable = true))
-      .add(StructField("delay", IntegerType, nullable = true))
-      .add(StructField("distance", IntegerType, nullable = true))
-      .add(StructField("origin", StringType, nullable = true))
-      .add(StructField("destination", StringType, nullable = true))
+  def defineDataFrameSchema() = {
+    StructType(
+      Array(
+        StructField("date", StringType, true),
+        StructField("delay", IntegerType, true),
+        StructField("distance", IntegerType, true),
+        StructField("origin", StringType, true),
+        StructField("destination", StringType, true)
+      )
+    )
   }
 
-  def castDateColumnToTimestamp(df: DataFrame): DataFrame = {
+  def castDateColumnToTimestamp(df: org.apache.spark.sql.DataFrame) = {
     df.withColumn("date", col("date").cast("TIMESTAMP"))
   }
 
-  def identifyCommonDelays(df: DataFrame): DataFrame = {
+  def identifyCommonDelays(df: org.apache.spark.sql.DataFrame) = {
     val winterMonthExpr = (month(col("date")) >= 12) || (month(col("date")) <= 2)
     val holidayExpr = dayofweek(col("date")).isin(1, 7)
 
     df.withColumn("Winter_Month", when(winterMonthExpr, "Yes").otherwise("No"))
       .withColumn("Holiday", when(holidayExpr, "Yes").otherwise("No"))
-      .groupBy(date_format(col("date"), "MM-dd").alias("month_day"), col("Winter_Month"), col("Holiday"))
+      .groupBy(date_format("date", "MM-dd").alias("month_day"), "Winter_Month", "Holiday")
       .count()
       .orderBy(col("count").desc())
   }
 
-  def labelDelayCategories(df: DataFrame): DataFrame = {
+  def labelDelayCategories(df: org.apache.spark.sql.DataFrame) = {
     val delayExpr = col("delay")
+
     df.withColumn("Flight_Delays",
       when(delayExpr > 360, "Very Long Delays")
         .when((delayExpr >= 120) && (delayExpr < 360), "Long Delays")
         .when((delayExpr >= 60) && (delayExpr < 120), "Short Delays")
         .when((delayExpr > 0) && (delayExpr < 60), "Tolerable Delays")
         .when(delayExpr === 0, "No Delays")
-        .otherwise("Early"))
-  }
-
-  def createTemporaryTable(df: DataFrame): Unit = {
-    df.createOrReplaceTempView("us_delay_flights_tbl")
-  }
-
-  def extractMonthAndDay(df: DataFrame): DataFrame = {
-    df.withColumn("month", month(col("date"))).withColumn("day", dayofmonth(col("date")))
-  }
-
-  def filterDataFrame(df: DataFrame): DataFrame = {
-    df.filter(
-      (col("origin") === "ORD") &&
-        (month(col("date")) === 3) &&
-        (dayofmonth(col("date")).between(1, 15))
+        .otherwise("Early")
     )
   }
 
-  def showDataFrame(df: DataFrame, numRecords: Int): Unit = {
+  def createTemporaryTable(df: org.apache.spark.sql.DataFrame) = {
+    df.createOrReplaceTempView("us_delay_flights_tbl")
+  }
+
+  def extractMonthAndDay(df: org.apache.spark.sql.DataFrame) = {
+    df.withColumn("month", month("date")).withColumn("day", dayofmonth("date"))
+  }
+
+  def filterDataFrame(df: org.apache.spark.sql.DataFrame) = {
+    df.filter(
+      (col("origin") === "ORD") &&
+        (month("date") === 3) &&
+        (dayofmonth("date").between(1, 15))
+    )
+  }
+
+  def showDataFrame(df: org.apache.spark.sql.DataFrame, numRecords: Int = 5) = {
     df.show(numRecords)
   }
 
-  def listTableColumns(spark: SparkSession, tableName: String): Unit = {
+  def listTableColumns(spark: SparkSession, tableName: String) = {
     val tableColumns = spark.catalog.listColumns(tableName)
     println(s"Columns of $tableName:")
     tableColumns.foreach(column => println(column.name))
   }
 
-  def writeDataFrameToJson(df: DataFrame, outputPath: String): Unit = {
+  def writeDataFrameToJson(df: org.apache.spark.sql.DataFrame, outputPath: String) = {
     df.write.mode("overwrite").json(outputPath)
   }
 
-  def writeDataFrameToLz4Json(df: DataFrame, outputPath: String): Unit = {
+  def writeDataFrameToLz4Json(df: org.apache.spark.sql.DataFrame, outputPath: String) = {
     df.write.mode("overwrite").format("json").option("compression", "lz4").save(outputPath)
   }
 
-  def writeDataFrameToParquet(df: DataFrame, outputPath: String): Unit = {
+  def writeDataFrameToParquet(df: org.apache.spark.sql.DataFrame, outputPath: String) = {
     df.write.mode("overwrite").parquet(outputPath)
   }
 
   def main(args: Array[String]): Unit = {
     if (args.length != 1) {
-      println("Usage: spark-submit Assignment03 <file_path>")
-      System.exit(-1)
+      println("Usage: spark-submit --class assignment_03 <jar-file> <file_path>")
+      System.exit(1)
     }
 
-    val spark = initializeSparkSession("Assignment03")
+    val spark = initializeSparkSession("assignment_03")
     val inputFilePath = args(0)
 
-    var df = readCsvToDataFrame(spark, inputFilePath)
+    val df = readCsvToDataFrame(spark, inputFilePath)
     val schema = defineDataFrameSchema()
-    df = castDateColumnToTimestamp(df)
-
-    val df1 = identifyCommonDelays(df)
+    val castedDf = castDateColumnToTimestamp(df)
+    val df1 = identifyCommonDelays(castedDf)
     df1.show(10)
 
-    val df2 = labelDelayCategories(df)
+    val df2 = labelDelayCategories(castedDf)
     df2.select("delay", "origin", "destination", "Flight_Delays").show(10)
 
-    createTemporaryTable(df)
+    createTemporaryTable(castedDf)
 
-    df = castDateColumnToTimestamp(df)
-    df = extractMonthAndDay(df)
+    val dfWithTimestamp = castDateColumnToTimestamp(df)
+    val dfWithMonthAndDay = extractMonthAndDay(dfWithTimestamp)
 
-    val filteredDf = filterDataFrame(df)
-    showDataFrame(filteredDf, 5)
+    val filteredDf = filterDataFrame(dfWithMonthAndDay)
+    showDataFrame(filteredDf)
 
     listTableColumns(spark, "us_delay_flights_tbl")
 
@@ -126,15 +129,14 @@ object Assignment03 {
     println("Data has been written to the specified files.")
 
     val parquetFilePath = "departuredelays.parquet"
-    df = spark.read.parquet(parquetFilePath)
-    df = df.withColumn("date", to_date(df("date"), "MMddHHmm"))
+    val parquetDf = spark.read.parquet(parquetFilePath)
+    val dfWithDate = parquetDf.withColumn("date", to_date(col("date"), "MMddHHmm"))
 
-    val ordDf = df.filter(df("origin") === "ORD")
+    val ordDf = dfWithDate.filter(col("origin") === "ORD")
 
     val ordParquetOutputPath = "orddeparturedelays.parquet"
     ordDf.write.mode("overwrite").parquet(ordParquetOutputPath)
 
     ordDf.show(10)
-    spark.stop()
   }
 }
