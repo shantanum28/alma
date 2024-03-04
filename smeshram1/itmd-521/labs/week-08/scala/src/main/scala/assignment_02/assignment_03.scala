@@ -28,16 +28,17 @@ object assignment_03 {
     df.withColumn("date", col("date").cast("TIMESTAMP"))
   }
 
-    def identifyCommonDelays(df: DataFrame): DataFrame = {
+  def identifyCommonDelays(df: DataFrame): DataFrame = {
     val winterMonthExpr = (month(col("date")) >= 12) || (month(col("date")) <= 2)
     val holidayExpr = dayofweek(col("date")).isin(1, 7)
 
     df.withColumn("Winter_Month", when(winterMonthExpr, "Yes").otherwise("No"))
-        .withColumn("Holiday", when(holidayExpr, "Yes").otherwise("No"))
-        .groupBy(date_format(col("date"), "MM-dd").alias("month_day"), col("Winter_Month"), col("Holiday"))
-        .count()
-        .orderBy(col("count").desc())
-    }
+      .withColumn("Holiday", when(holidayExpr, "Yes").otherwise("No"))
+      .groupBy(date_format(col("date"), "MM-dd").alias("month_day"), col("Winter_Month"), col("Holiday"))
+      .agg(count("*").alias("count"))
+      .filter(col("month_day").isNotNull && col("Winter_Month").isNotNull && col("Holiday").isNotNull)
+      .orderBy(col("count").desc())
+  }
 
   def labelDelayCategories(df: DataFrame): DataFrame = {
     val delayExpr = col("delay")
@@ -89,13 +90,13 @@ object assignment_03 {
   }
 
   def main(args: Array[String]): Unit = {
-    if (args.length != 1) {
+    if (args.length != 2) {
       Console.err.println("Usage: spark-submit Assignment03 <file_path>")
       System.exit(-1)
     }
 
     val spark = initializeSparkSession("Assignment03")
-    val inputFilePath = args(0)
+    val inputFilePath = args(1)
 
     var df = readCsvToDataFrame(spark, inputFilePath)
     val schema = defineDataFrameSchema()
