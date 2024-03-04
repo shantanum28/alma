@@ -2,7 +2,7 @@ import org.apache.spark.sql.{SparkSession, DataFrame}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 
-object FlightDelayAnalysis {
+object assignment_03 {
 
   def initializeSparkSession(appName: String): SparkSession = {
     SparkSession.builder.appName(appName).getOrCreate()
@@ -27,14 +27,14 @@ object FlightDelayAnalysis {
   }
 
   def identifyCommonDelays(df: DataFrame): DataFrame = {
-    val winterMonthExpr = (month(col("date")) >= 12) || (month(col("date")) <= 2)
-    val holidayExpr = dayofweek(col("date")).isin(1, 7)
+  val winterMonthExpr = (month(col("date")) >= 12) || (month(col("date")) <= 2)
+  val holidayExpr = dayofweek(col("date")).isin(1, 7)
 
-    df.withColumn("Winter_Month", when(winterMonthExpr, "Yes").otherwise("No"))
-      .withColumn("Holiday", when(holidayExpr, "Yes").otherwise("No"))
-      .groupBy(date_format(col("date"), "MM-dd").alias("month_day"), col("Winter_Month"), col("Holiday"))
-      .count()
-      .orderBy(col("count").desc())
+  df.withColumn("Winter_Month", when(winterMonthExpr, lit("Yes")).otherwise(lit("No")))
+    .withColumn("Holiday", when(holidayExpr, lit("Yes")).otherwise(lit("No")))
+    .groupBy(date_format(col("date"), "MM-dd").alias("month_day"), col("Winter_Month"), col("Holiday"))
+    .count()
+    .orderBy(col("count").desc())
   }
 
   def labelDelayCategories(df: DataFrame): DataFrame = {
@@ -88,11 +88,11 @@ object FlightDelayAnalysis {
 
   def main(args: Array[String]): Unit = {
     if (args.length != 1) {
-      println("Usage: spark-submit FlightDelayAnalysis <file_path>")
+      println("Usage: spark-submit assignment_03 <file_path>")
       sys.exit(-1)
     }
 
-    val spark = initializeSparkSession("FlightDelayAnalysis")
+    val spark = initializeSparkSession("assignment_03")
     val inputFilePath = args(0)
 
     var df = readCsvToDataFrame(spark, inputFilePath)
