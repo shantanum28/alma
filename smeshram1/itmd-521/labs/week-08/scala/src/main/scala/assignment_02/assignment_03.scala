@@ -1,6 +1,6 @@
 import org.apache.spark.sql.{SparkSession, DataFrame}
 import org.apache.spark.sql.types.{StructType, StructField, StringType, IntegerType}
-import org.apache.spark.sql.functions.{col, date_format, when, month, dayofweek, dayofmonth, to_date}
+import org.apache.spark.sql.functions._
 
 object assignment_03 {
 
@@ -39,7 +39,6 @@ object assignment_03 {
     .filter(col("month_day").isNotNull && col("Winter_Month").isNotNull && col("Holiday").isNotNull)
     .orderBy(col("count").desc())
   }
-
 
   def labelDelayCategories(df: DataFrame): DataFrame = {
     val delayExpr = col("delay")
