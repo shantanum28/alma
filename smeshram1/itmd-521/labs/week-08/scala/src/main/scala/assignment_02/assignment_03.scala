@@ -28,14 +28,14 @@ object Assignment03 {
   }
 
   def identifyCommonDelays(df: org.apache.spark.sql.DataFrame) = {
-    val winterMonthExpr = (month(col("date")) >= 12) || (month(col("date")) <= 2)
-    val holidayExpr = dayofweek(col("date")).isin(1, 7)
+  val winterMonthExpr = (month(col("date")) >= 12) || (month(col("date")) <= 2)
+  val holidayExpr = dayofweek(col("date")).isin(1, 7)
 
-    df.withColumn("Winter_Month", when(winterMonthExpr, "Yes").otherwise("No"))
-      .withColumn("Holiday", when(holidayExpr, "Yes").otherwise("No"))
-      .groupBy(date_format(col("date"), "MM-dd").alias("month_day"), "Winter_Month", "Holiday")
-      .count()
-      .orderBy(col("count").desc())
+  df.withColumn("Winter_Month", when(winterMonthExpr, "Yes").otherwise("No"))
+    .withColumn("Holiday", when(holidayExpr, "Yes").otherwise("No"))
+    .groupBy(date_format(col("date"), "MM-dd").alias("month_day"), col("Winter_Month"), col("Holiday"))
+    .count()
+    .orderBy(col("count").desc())
   }
 
   def labelDelayCategories(df: org.apache.spark.sql.DataFrame) = {
