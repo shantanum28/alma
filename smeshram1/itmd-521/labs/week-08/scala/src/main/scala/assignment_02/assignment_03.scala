@@ -84,10 +84,6 @@ object assignment_03 {
     var df = readCsvToDataFrame(spark, inputFilePath)
     df = castDateColumnToTimestamp(df)
 
-    // Part I
-    val df1 = identifyCommonDelays(df)
-    df1.show(10)
-
     // Part II
     createTemporaryTable(df)
     val filteredDF = filterDataFrame(df)
