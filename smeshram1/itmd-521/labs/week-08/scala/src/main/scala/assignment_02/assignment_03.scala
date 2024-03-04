@@ -2,7 +2,7 @@ import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 
-object assignment_03 {
+object Assignment03 {
 
   def initializeSparkSession(appName: String): SparkSession = {
     SparkSession.builder.appName(appName).getOrCreate()
@@ -26,6 +26,17 @@ object assignment_03 {
     df.withColumn("date", col("date").cast("TIMESTAMP"))
   }
 
+  def identifyCommonDelays(df: org.apache.spark.sql.DataFrame): org.apache.spark.sql.DataFrame = {
+    val winterMonthExpr = (month(col("date")) >= 12) || (month(col("date")) <= 2)
+    val holidayExpr = dayofweek(col("date")).isin(1, 7)
+
+    df.withColumn("Winter_Month", when(winterMonthExpr, "Yes").otherwise("No"))
+      .withColumn("Holiday", when(holidayExpr, "Yes").otherwise("No"))
+      .groupBy(date_format("date", "MM-dd").alias("month_day"), "Winter_Month", "Holiday")
+      .agg(count("*").alias("count"))
+      .orderBy(col("count").desc())
+  }
+
   def labelDelayCategories(df: org.apache.spark.sql.DataFrame): org.apache.spark.sql.DataFrame = {
     val delayExpr = col("delay")
     df.withColumn("Flight_Delays",
@@ -43,9 +54,16 @@ object assignment_03 {
   }
 
   def extractMonthAndDay(df: org.apache.spark.sql.DataFrame): org.apache.spark.sql.DataFrame = {
-    df.withColumn("month", month("date")).withColumn("day", dayofmonth("date"))
+    df.withColumn("month", month(col("date"))).withColumn("day", dayofmonth(col("date")))
   }
 
+  def filterDataFrame(df: org.apache.spark.sql.DataFrame): org.apache.spark.sql.DataFrame = {
+    df.filter(
+      (col("origin") === "ORD") &&
+        (month(col("date")) === 3) &&
+        (dayofmonth(col("date")).between(1, 15))
+    )
+  }
 
   def listTableColumns(spark: SparkSession, tableName: String): Unit = {
     val tableColumns = spark.catalog.listColumns(tableName)
@@ -67,15 +85,19 @@ object assignment_03 {
 
   def main(args: Array[String]): Unit = {
     if (args.length != 1) {
-      println("Usage: spark-submit assignment_03.jar <file_path>")
+      println("Usage: spark-submit Assignment03.jar <file_path>")
       sys.exit(-1)
     }
 
-    val spark = initializeSparkSession("assignment_03")
+    val spark = initializeSparkSession("Assignment03")
     val inputFilePath = args(0)
 
     var df = readCsvToDataFrame(spark, inputFilePath)
     df = castDateColumnToTimestamp(df)
+
+    // Part I
+    val df1 = identifyCommonDelays(df)
+    df1.show(10)
 
     // Part II
     createTemporaryTable(df)
