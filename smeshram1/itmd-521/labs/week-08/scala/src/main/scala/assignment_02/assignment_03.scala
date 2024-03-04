@@ -4,9 +4,9 @@ import org.apache.spark.sql.types._
 
 object assignment_03 {
 
-  val spark: SparkSession = initializeSparkSession("assignment_03")
-
-  val initializeSparkSession: String => SparkSession = (appName: String) => SparkSession.builder.appName(appName).getOrCreate()
+  def initializeSparkSession(appName: String): SparkSession = {
+    SparkSession.builder.appName(appName).getOrCreate()
+  }
 
   val readCsvToDataFrame: (SparkSession, String) => DataFrame = (spark: SparkSession, file_path: String) => {
     spark.read.csv(file_path).toDF(defineDataFrameSchema().fieldNames: _*)
