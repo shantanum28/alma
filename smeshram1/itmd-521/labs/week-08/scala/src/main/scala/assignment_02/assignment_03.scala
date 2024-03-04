@@ -1,95 +1,83 @@
-import org.apache.spark.sql.{SparkSession, SaveMode}
+import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 
 object assignment_03 {
+
   def main(args: Array[String]): Unit = {
     if (args.length != 1) {
-      println("Usage: spark-submit assignment_03.scala <file_path>")
+      println("Usage: spark-submit assignment_03.scala <input_file_path>")
       System.exit(1)
     }
 
-    val filePath = args(0)
-    val spark = SparkSession.builder().appName("assignment_03").getOrCreate()
+    val inputFilePath = args(0)
 
-    // Reading CSV to DataFrame
-    val schema = StructType(Array(
-      StructField("date", StringType, true),
-      StructField("delay", IntegerType, true),
-      StructField("distance", IntegerType, true),
-      StructField("origin", StringType, true),
-      StructField("destination", StringType, true)
-    ))
+    val spark = SparkSession.builder
+      .appName("assignment_03")
+      .getOrCreate()
 
-    var df = spark.read.option("header", true).schema(schema).csv(filePath)
+    try {
+      // Part I - Query 1
+      val departuresDF = spark.read.option("header", "true").csv(inputFilePath)
+      departuresDF.createOrReplaceTempView("departures")
 
-    // Casting date column to timestamp
-    df = df.withColumn("date", col("date").cast("timestamp"))
+      val query1Result = departuresDF
+        .filter("Delay > 0")
+        .groupBy("Origin", "Dest")
+        .agg(count("*").alias("total_delays"))
+        .orderBy(desc("total_delays"))
+        .limit(10)
 
-    // Identifying common delays
-    val winterMonthExpr = (month(col("date")) >= 12) || (month(col("date")) <= 2)
-    val holidayExpr = dayofweek(col("date")).isin(1, 7)
+      query1Result.show()
 
-    val commonDelaysDF = df
-      .withColumn("Winter_Month", when(winterMonthExpr, "Yes").otherwise("No"))
-      .withColumn("Holiday", when(holidayExpr, "Yes").otherwise("No"))
-      .groupBy(date_format("date", "MM-dd").alias("month_day"), "Winter_Month", "Holiday")
-      .count()
-      .orderBy(col("count").desc())
+      // Part I - Query 2
+      val query2Result = departuresDF
+        .withColumn("Flight_Delays", when(col("Delay") > 360, "Very Long Delays")
+          .when(col("Delay") > 120 && col("Delay") <= 360, "Long Delays")
+          .otherwise("Other Delays"))
+        .select("Origin", "Dest", "Delay", "Flight_Delays")
+        .limit(10)
 
-    commonDelaysDF.show(10)
+      query2Result.show()
 
-    // Labeling delay categories
-    val labeledDF = df.withColumn("Flight_Delays", expr(
-      """CASE
-        | WHEN delay > 360 THEN 'Very Long Delays'
-        | WHEN delay >= 120 AND delay < 360 THEN 'Long Delays'
-        | WHEN delay >= 60 AND delay < 120 THEN 'Short Delays'
-        | WHEN delay > 0 AND delay < 60 THEN 'Tolerable Delays'
-        | WHEN delay = 0 THEN 'No Delays'
-        | ELSE 'Early' END""".stripMargin))
+      // Part II - Creating table and tempView
+      departuresDF.write.mode("overwrite").saveAsTable("us_delay_flights_tbl")
 
-    labeledDF.select("delay", "origin", "destination", "Flight_Delays").show(10)
+      val chicagoFlights = departuresDF
+        .filter("Origin = 'ORD' AND Month = 3 AND Day >= 1 AND Day <= 15")
+        .limit(5)
+      chicagoFlights.createOrReplaceTempView("chicago_flights_view")
+      chicagoFlights.show()
 
-    // Creating temporary table
-    df.createOrReplaceTempView("us_delay_flights_tbl")
+      // Part II - Using Spark Catalog
+      spark.conf.set("spark.sql.catalogImplementation", "hive")
+      val catalog = spark.catalog
+      val columns = catalog.listColumns("us_delay_flights_tbl")
+      columns.show()
 
-    // Extracting month and day
-    df = df.withColumn("month", month("date")).withColumn("day", dayofmonth("date"))
+      // Part III - Reading and writing DataFrame
+      val departuresSchema = StructType(Seq(
+        StructField("Date", DateType),
+        StructField("Delay", IntegerType),
+        // Add other schema fields here
+      ))
 
-    // Filtering DataFrame
-    val filteredDF = df.filter(col("origin") === "ORD" && month("date") === 3 && dayofmonth("date").between(1, 15))
-    filteredDF.show(5)
+      val departuresWithSchema = spark.read
+        .schema(departuresSchema)
+        .option("header", "true")
+        .csv(inputFilePath)
 
-    // Listing table columns
-    spark.catalog.listColumns("us_delay_flights_tbl").show()
+      departuresWithSchema.write.mode("overwrite").json("departuredelays.json")
+      departuresWithSchema.write.mode("overwrite").option("compression", "lz4").json("departuredelays_lz4.json")
+      departuresWithSchema.write.mode("overwrite").parquet("departuredelays.parquet")
 
-    // Writing DataFrame to JSON
-    val jsonOutputPath = "departuredelays.json"
-    df.write.mode(SaveMode.Overwrite).json(jsonOutputPath)
-
-    // Writing DataFrame to LZ4 JSON
-    val lz4JsonOutputPath = "departuredelays_lz4.json"
-    df.write.mode(SaveMode.Overwrite).option("compression", "lz4").json(lz4JsonOutputPath)
-
-    // Writing DataFrame to Parquet
-    val parquetOutputPath = "departuredelays.parquet"
-    df.write.mode(SaveMode.Overwrite).parquet(parquetOutputPath)
-
-    println("Data has been written to the specified files.")
-
-    // Reading Parquet file
-    val parquetFilePath = "departuredelays.parquet"
-    df = spark.read.parquet(parquetFilePath)
-    df = df.withColumn("date", to_date(col("date"), "MMddHHmm"))
-
-    // Selecting records with ORD as origin
-    val ordDF = df.filter(col("origin") === "ORD")
-    ordDF.write.mode(SaveMode.Overwrite).parquet("orddeparturedelays.parquet")
-
-    // Showing first 10 records
-    ordDF.show(10)
-
-    spark.stop()
+      // Part IV - Reading Parquet file and filtering ORD records
+      val parquetDF = spark.read.parquet("departuredelays.parquet")
+      val ordDepartures = parquetDF.filter("Origin = 'ORD'")
+      ordDepartures.write.mode("overwrite").parquet("orddeparturedelays.parquet")
+      ordDepartures.show(10)
+    } finally {
+      spark.stop()
+    }
   }
 }
