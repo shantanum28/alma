@@ -46,13 +46,6 @@ object assignment_03 {
     df.withColumn("month", month("date")).withColumn("day", dayofmonth("date"))
   }
 
-  def filterDataFrame(df: org.apache.spark.sql.DataFrame): org.apache.spark.sql.DataFrame = {
-    df.filter(
-      (col("origin") === "ORD") &&
-        (month("date") === 3) &&
-        (dayofmonth("date").between(1, 15))
-    )
-  }
 
   def listTableColumns(spark: SparkSession, tableName: String): Unit = {
     val tableColumns = spark.catalog.listColumns(tableName)
