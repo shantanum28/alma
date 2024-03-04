@@ -32,7 +32,7 @@ object FlightDelayAnalysis {
 
     df.withColumn("Winter_Month", when(winterMonthExpr, "Yes").otherwise("No"))
       .withColumn("Holiday", when(holidayExpr, "Yes").otherwise("No"))
-      .groupBy(date_format(col("date"), "MM-dd").alias("month_day"), "Winter_Month", "Holiday")
+      .groupBy(date_format(col("date"), "MM-dd").alias("month_day"), col("Winter_Month"), col("Holiday"))
       .count()
       .orderBy(col("count").desc())
   }
