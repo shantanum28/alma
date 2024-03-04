@@ -32,7 +32,7 @@ object FlightDelayAnalysis {
 
     df.withColumn("Winter_Month", when(winterMonthExpr, "Yes").otherwise("No"))
       .withColumn("Holiday", when(holidayExpr, "Yes").otherwise("No"))
-      .groupBy(date_format("date", "MM-dd").alias("month_day"), "Winter_Month", "Holiday")
+      .groupBy(date_format(col("date"), "MM-dd").alias("month_day"), "Winter_Month", "Holiday")
       .count()
       .orderBy(col("count").desc())
   }
@@ -53,14 +53,14 @@ object FlightDelayAnalysis {
   }
 
   def extractMonthAndDay(df: DataFrame): DataFrame = {
-    df.withColumn("month", month("date")).withColumn("day", dayofmonth("date"))
+    df.withColumn("month", month(col("date"))).withColumn("day", dayofmonth(col("date")))
   }
 
   def filterDataFrame(df: DataFrame): DataFrame = {
     df.filter(
       (col("origin") === "ORD") &&
-        (month("date") === 3) &&
-        (dayofmonth("date").between(1, 15))
+        (month(col("date")) === 3) &&
+        (dayofmonth(col("date")).between(1, 15))
     )
   }
 
@@ -127,7 +127,7 @@ object FlightDelayAnalysis {
 
     val parquetFilePath = "departuredelays.parquet"
     df = spark.read.parquet(parquetFilePath)
-    df = df.withColumn("date", to_date(df("date"), "MMddHHmm"))
+    df = df.withColumn("date", to_date(col("date"), "MMddHHmm"))
 
     val ordDf = df.filter(col("origin") === "ORD")
 
