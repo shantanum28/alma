@@ -1,8 +1,8 @@
 import org.apache.spark.sql.{SparkSession, functions}
-import org.apache.spark.sql.types.{StructType, StructField, StringType, IntegerType}
+import org.apache.spark.sql.types.{StructType, StructField, DateType, IntegerType, StringType}
 import org.apache.spark.sql.functions._
 
-object assignment_03 {
+object Assignment03 {
   def initializeSparkSession(appName: String): SparkSession = {
     SparkSession.builder.appName(appName).getOrCreate()
   }
@@ -14,7 +14,7 @@ object assignment_03 {
   def defineDataFrameSchema() = {
     StructType(
       Array(
-        StructField("date", StringType, true),
+        StructField("date", DateType, true),
         StructField("delay", IntegerType, true),
         StructField("distance", IntegerType, true),
         StructField("origin", StringType, true),
@@ -33,7 +33,7 @@ object assignment_03 {
 
     df.withColumn("Winter_Month", when(winterMonthExpr, "Yes").otherwise("No"))
       .withColumn("Holiday", when(holidayExpr, "Yes").otherwise("No"))
-      .groupBy(date_format("date", "MM-dd").alias("month_day"), "Winter_Month", "Holiday")
+      .groupBy(date_format(col("date"), "MM-dd").alias("month_day"), "Winter_Month", "Holiday")
       .count()
       .orderBy(col("count").desc())
   }
@@ -56,14 +56,14 @@ object assignment_03 {
   }
 
   def extractMonthAndDay(df: org.apache.spark.sql.DataFrame) = {
-    df.withColumn("month", month("date")).withColumn("day", dayofmonth("date"))
+    df.withColumn("month", month(col("date"))).withColumn("day", dayofmonth(col("date")))
   }
 
   def filterDataFrame(df: org.apache.spark.sql.DataFrame) = {
     df.filter(
       (col("origin") === "ORD") &&
-        (month("date") === 3) &&
-        (dayofmonth("date").between(1, 15))
+        (month(col("date")) === 3) &&
+        (dayofmonth(col("date")).between(1, 15))
     )
   }
 
@@ -91,7 +91,7 @@ object assignment_03 {
 
   def main(args: Array[String]): Unit = {
     if (args.length != 1) {
-      println("Usage: spark-submit --class assignment_03 <jar-file> <file_path>")
+      println("Usage: spark-submit --class Assignment03 <jar-file> <file_path>")
       System.exit(1)
     }
 
