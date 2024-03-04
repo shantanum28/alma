@@ -29,16 +29,17 @@ object assignment_03 {
   }
 
   def identifyCommonDelays(df: DataFrame): DataFrame = {
-    val winterMonthExpr = (month(col("date")) >= 12) || (month(col("date")) <= 2)
-    val holidayExpr = dayofweek(col("date")).isin(1, 7)
+  val winterMonthExpr = (month(col("date")) >= 12) || (month(col("date")) <= 2)
+  val holidayExpr = dayofweek(col("date")).isin(1, 7)
 
-    df.withColumn("Winter_Month", when(winterMonthExpr, "Yes").otherwise("No"))
-      .withColumn("Holiday", when(holidayExpr, "Yes").otherwise("No"))
-      .groupBy(date_format(col("date"), "MM-dd").alias("month_day"), col("Winter_Month"), col("Holiday"))
-      .agg(count("*").alias("count"))
-      .filter(col("month_day").isNotNull && col("Winter_Month").isNotNull && col("Holiday").isNotNull)
-      .orderBy(col("count").desc())
+  df.withColumn("Winter_Month", when(winterMonthExpr, "Yes").otherwise("No"))
+    .withColumn("Holiday", when(holidayExpr, "Yes").otherwise("No"))
+    .groupBy(date_format(col("date"), "MM-dd").alias("month_day"), col("Winter_Month"), col("Holiday"))
+    .agg(count("*").as("count"))
+    .filter(col("month_day").isNotNull && col("Winter_Month").isNotNull && col("Holiday").isNotNull)
+    .orderBy(col("count").desc())
   }
+
 
   def labelDelayCategories(df: DataFrame): DataFrame = {
     val delayExpr = col("delay")
