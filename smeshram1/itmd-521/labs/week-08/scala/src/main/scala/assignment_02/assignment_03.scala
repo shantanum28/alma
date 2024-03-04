@@ -32,7 +32,7 @@ object assignment_03 {
 
     df.withColumn("Winter_Month", when(winterMonthExpr, "Yes").otherwise("No"))
       .withColumn("Holiday", when(holidayExpr, "Yes").otherwise("No"))
-      .groupBy(date_format("date", "MM-dd").alias("month_day"), "Winter_Month", "Holiday")
+      .groupBy(date_format(col("date"), "MM-dd").alias("month_day"), col("Winter_Month"), col("Holiday"))
       .count()
       .orderBy(col("count").desc())
   }
@@ -53,14 +53,14 @@ object assignment_03 {
   }
 
   val extractMonthAndDay: DataFrame => DataFrame = (df: DataFrame) => {
-    df.withColumn("month", month("date")).withColumn("day", dayofmonth("date"))
+    df.withColumn("month", month(col("date"))).withColumn("day", dayofmonth(col("date")))
   }
 
   val filterDataFrame: DataFrame => DataFrame = (df: DataFrame) => {
     df.filter(
       (col("origin") === "ORD") &&
-        (month("date") === 3) &&
-        (dayofmonth("date").between(1, 15))
+        (month(col("date")) === 3) &&
+        (dayofmonth(col("date")).between(1, 15))
     )
   }
 
