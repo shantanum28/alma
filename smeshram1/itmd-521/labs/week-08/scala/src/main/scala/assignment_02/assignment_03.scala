@@ -1,18 +1,17 @@
 import org.apache.spark.sql.{SparkSession, functions}
 import org.apache.spark.sql.functions.{col, expr, when, month, dayofyear, dayofmonth}
 
-object assignment_03 {
-
+object Assignment03 {
   def main(args: Array[String]): Unit = {
     if (args.length != 1) {
-      Console.err.println("Usage: spark-submit assignment_03 <file_path>")
-      System.exit(-1)
+      Console.err.println("Usage: spark-submit assignment_03.scala <file_path>")
+      System.exit(1)
     }
 
     val filePath = args(0)
 
     // Initialize Spark session
-    val spark = SparkSession.builder.appName("assignment_03").getOrCreate()
+    val spark = SparkSession.builder.appName("Assignment03").getOrCreate()
 
     // Part I - Query 1
     var df = spark.read.format("csv").option("header", "true").load(filePath)
@@ -20,7 +19,7 @@ object assignment_03 {
     df.createOrReplaceTempView("flights")
 
     // SQL Query
-    val query1Sql =
+    val query1SQL =
       """
         |SELECT
         |    date,
@@ -35,20 +34,20 @@ object assignment_03 {
         |ORDER BY delay DESC
         |LIMIT 10
       """.stripMargin
-    val resultQuery1Sql = spark.sql(query1Sql)
-    resultQuery1Sql.show()
+    val resultQuery1SQL = spark.sql(query1SQL)
+    resultQuery1SQL.show()
 
     // DataFrame API Query
-    val resultQuery1Api =
-      df.filter(col("delay") > 0)
-        .withColumn("winter_month", when(month("date").isin(12, 1, 2), "Winter").otherwise("Not Winter"))
-        .withColumn("holiday", when(dayofyear("date").isin(1, 25, 122, 245), "Holiday").otherwise("Not Holiday"))
-        .orderBy(col("delay").desc())
-        .limit(10)
-    resultQuery1Api.show()
+    val resultQuery1API = df
+      .filter(col("delay") > 0)
+      .withColumn("winter_month", when(month(col("date")).isin(12, 1, 2), "Winter").otherwise("Not Winter"))
+      .withColumn("holiday", when(dayofyear(col("date")).isin(1, 25, 122, 245), "Holiday").otherwise("Not Holiday"))
+      .orderBy(col("delay").desc())
+      .limit(10)
+    resultQuery1API.show()
 
     // Part I - Query 2
-    val query2Sql =
+    val query2SQL =
       """
         |SELECT
         |    *,
@@ -62,12 +61,12 @@ object assignment_03 {
         |    END as Flight_Delays
         |FROM flights
       """.stripMargin
-    val resultQuery2Sql = spark.sql(query2Sql)
-    resultQuery2Sql.show(10)
+    val resultQuery2SQL = spark.sql(query2SQL)
+    resultQuery2SQL.show(10)
 
     // DataFrame API Query
-    val resultQuery2Api =
-      df.withColumn(
+    val resultQuery2API = df
+      .withColumn(
         "Flight_Delays",
         when(col("delay") > 360, "Very Long Delays")
           .when((col("delay") > 120) && (col("delay") < 360), "Long Delays")
@@ -76,7 +75,7 @@ object assignment_03 {
           .when(col("delay") === 0, "No Delays")
           .otherwise("Early")
       )
-    resultQuery2Api.show(10)
+    resultQuery2API.show(10)
 
     // Part II
     df.createOrReplaceTempView("us_delay_flights_tbl")
@@ -92,21 +91,21 @@ object assignment_03 {
     tableColumns.foreach(column => println(column.name))
 
     // SQL Query
-    val queryPartIISql =
+    val queryPartIISQL =
       """
         |SELECT *
         |FROM us_delay_flights_tbl
         |WHERE origin = 'ORD' AND month(date) = 3 AND day(date) BETWEEN 1 AND 15
         |LIMIT 5
       """.stripMargin
-    val resultPartIISql = spark.sql(queryPartIISql)
-    resultPartIISql.show()
+    val resultPartIISQL = spark.sql(queryPartIISQL)
+    resultPartIISQL.show()
 
     // DataFrame API Query
-    val resultPartIIApi =
-      df.filter((col("origin") === "ORD") && (month("date") === 3) && (dayofmonth("date").between(1, 15)))
-        .limit(5)
-    resultPartIIApi.show()
+    val resultPartIIAPI = df
+      .filter((col("origin") === "ORD") && (month(col("date")) === 3) && (dayofmonth(col("date")).between(1, 15)))
+      .limit(5)
+    resultPartIIAPI.show()
 
     // Part III
     df = df.withColumn("date", col("date").cast("date"))
@@ -119,24 +118,24 @@ object assignment_03 {
     df.write.mode("overwrite").parquet("departuredelays.parquet")
 
     // Part IV
-    val parquetDf = spark.read.parquet("departuredelays.parquet")
+    val parquetDF = spark.read.parquet("departuredelays.parquet")
 
     // SQL Query
-    val queryPartIVSql =
+    val queryPartIVSQL =
       """
         |SELECT *
         |FROM __THIS__
         |WHERE origin = 'ORD'
       """.stripMargin
-    parquetDf.createOrReplaceTempView("__THIS__")
-    val resultPartIVSql = spark.sql(queryPartIVSql)
-    resultPartIVSql.write.mode("overwrite").parquet("orddeparturedelays.parquet")
-    resultPartIVSql.show(10)
+    parquetDF.createOrReplaceTempView("__THIS__")
+    val resultPartIVSQL = spark.sql(queryPartIVSQL)
+    resultPartIVSQL.write.mode("overwrite").parquet("orddeparturedelays.parquet")
+    resultPartIVSQL.show(10)
 
     // DataFrame API Query
-    val ordDepartureDelaysApi = parquetDf.filter(col("origin") === "ORD")
-    ordDepartureDelaysApi.write.mode("overwrite").parquet("orddeparturedelays.parquet")
-    ordDepartureDelaysApi.show(10)
+    val ordDepartureDelaysAPI = parquetDF.filter(col("origin") === "ORD")
+    ordDepartureDelaysAPI.write.mode("overwrite").parquet("orddeparturedelays.parquet")
+    ordDepartureDelaysAPI.show(10)
 
     spark.stop()
   }
