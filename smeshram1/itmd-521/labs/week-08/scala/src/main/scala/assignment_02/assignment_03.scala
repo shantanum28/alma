@@ -4,8 +4,8 @@ import org.apache.spark.sql.functions.{col, expr, when, month, dayofyear, dayofm
 object Assignment03 {
   def main(args: Array[String]): Unit = {
     if (args.length != 1) {
-      Console.err.println("Usage: spark-submit assignment_03.scala <file_path>")
-      System.exit(1)
+      println("Usage: spark-submit assignment_03.scala <file_path>")
+      System.exit(-1)
     }
 
     val filePath = args(0)
@@ -38,8 +38,7 @@ object Assignment03 {
     resultQuery1SQL.show()
 
     // DataFrame API Query
-    val resultQuery1API = df
-      .filter(col("delay") > 0)
+    val resultQuery1API = df.filter(col("delay") > 0)
       .withColumn("winter_month", when(month(col("date")).isin(12, 1, 2), "Winter").otherwise("Not Winter"))
       .withColumn("holiday", when(dayofyear(col("date")).isin(1, 25, 122, 245), "Holiday").otherwise("Not Holiday"))
       .orderBy(col("delay").desc())
@@ -65,22 +64,21 @@ object Assignment03 {
     resultQuery2SQL.show(10)
 
     // DataFrame API Query
-    val resultQuery2API = df
-      .withColumn(
-        "Flight_Delays",
-        when(col("delay") > 360, "Very Long Delays")
-          .when((col("delay") > 120) && (col("delay") < 360), "Long Delays")
-          .when((col("delay") > 60) && (col("delay") < 120), "Short Delays")
-          .when((col("delay") > 0) && (col("delay") < 60), "Tolerable Delays")
-          .when(col("delay") === 0, "No Delays")
-          .otherwise("Early")
-      )
+    val resultQuery2API = df.withColumn(
+      "Flight_Delays",
+      when(col("delay") > 360, "Very Long Delays")
+        .when((col("delay") > 120) && (col("delay") < 360), "Long Delays")
+        .when((col("delay") > 60) && (col("delay") < 120), "Short Delays")
+        .when((col("delay") > 0) && (col("delay") < 60), "Tolerable Delays")
+        .when(col("delay") === 0, "No Delays")
+        .otherwise("Early")
+    )
     resultQuery2API.show(10)
 
     // Part II
     df.createOrReplaceTempView("us_delay_flights_tbl")
 
-    // Use Spark Catalog to list columns of table
+    // Use Spark Catalog to list columns of the table
     val catalog = spark.catalog
 
     // Get the columns of the table 'us_delay_flights_tbl'
@@ -102,8 +100,7 @@ object Assignment03 {
     resultPartIISQL.show()
 
     // DataFrame API Query
-    val resultPartIIAPI = df
-      .filter((col("origin") === "ORD") && (month(col("date")) === 3) && (dayofmonth(col("date")).between(1, 15)))
+    val resultPartIIAPI = df.filter((col("origin") === "ORD") && (month(col("date")) === 3) && (dayofmonth(col("date")).between(1, 15)))
       .limit(5)
     resultPartIIAPI.show()
 
