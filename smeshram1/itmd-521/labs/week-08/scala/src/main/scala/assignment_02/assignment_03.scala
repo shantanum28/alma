@@ -1,4 +1,5 @@
 import org.apache.spark.sql.{SparkSession, functions}
+import org.apache.spark.sql.types._
 
 object assignment_03 {
   def main(args: Array[String]): Unit = {
@@ -35,6 +36,17 @@ object assignment_03 {
     val resultQuery1SQL = spark.sql(query1SQL)
     resultQuery1SQL.show()
 
+    // Corresponding DataFrame API
+    import spark.implicits._
+    val resultQuery1DF = df
+      .filter("delay > 0")
+      .withColumn("winter_month", functions.when(functions.month("date").isin(12, 1, 2), "Winter").otherwise("Not Winter"))
+      .withColumn("holiday", functions.when(functions.dayofyear("date").isin(1, 25, 122, 245), "Holiday").otherwise("Not Holiday"))
+      .select("date", "delay", "distance", "origin", "destination", "winter_month", "holiday")
+      .orderBy(functions.col("delay").desc)
+      .limit(10)
+    resultQuery1DF.show()
+
     // Part I - Query 2
     val query2SQL =
       """
@@ -53,6 +65,16 @@ object assignment_03 {
     val resultQuery2SQL = spark.sql(query2SQL)
     resultQuery2SQL.show(10)
 
+    // Corresponding DataFrame API
+    val resultQuery2DF = df
+      .withColumn("Flight_Delays", functions.when(functions.col("delay") > 360, "Very Long Delays")
+        .when((functions.col("delay") > 120) && (functions.col("delay") < 360), "Long Delays")
+        .when((functions.col("delay") > 60) && (functions.col("delay") < 120), "Short Delays")
+        .when((functions.col("delay") > 0) && (functions.col("delay") < 60), "Tolerable Delays")
+        .when(functions.col("delay") === 0, "No Delays")
+        .otherwise("Early"))
+    resultQuery2DF.show(10)
+
     // Part II
     df.createOrReplaceTempView("us_delay_flights_tbl")
 
@@ -66,6 +88,12 @@ object assignment_03 {
       """.stripMargin
     val resultPartIISQL = spark.sql(queryPartIISQL)
     resultPartIISQL.show()
+
+    // Corresponding DataFrame API
+    val resultPartIIDF = df
+      .filter("origin = 'ORD' AND month(date) = 3 AND day(date) BETWEEN 1 AND 15")
+      .limit(5)
+    resultPartIIDF.show()
 
     // Part III
     df = df.withColumn("date", functions.col("date").cast("date"))
