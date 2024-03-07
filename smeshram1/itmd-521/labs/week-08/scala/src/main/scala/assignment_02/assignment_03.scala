@@ -50,10 +50,11 @@ object Assignment03SparkAPI {
 
     resultPartIIAPI.show()
 
-    // Use Spark Catalog to list columns of us_delay_flights_tbl
+    // Use Spark Catalog to list column names of us_delay_flights_tbl
     val tableColumns = spark.catalog.listColumns("us_delay_flights_tbl")
+    val columnNames = tableColumns.select("name")
     println("Columns of us_delay_flights_tbl:")
-    tableColumns.show()
+    columnNames.show(false)
 
     // Part III
     df = df.withColumn("date", functions.col("date").cast("date"))
