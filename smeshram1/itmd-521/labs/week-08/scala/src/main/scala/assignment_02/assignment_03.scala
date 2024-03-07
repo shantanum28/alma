@@ -19,8 +19,8 @@ object Assignment03SparkAPI {
     // Spark API Query 1
     val resultQuery1API = df
       .filter("delay > 0")
-      .withColumn("winter_month", functions.when(functions.month("date").isin(12, 1, 2), "Winter").otherwise("Not Winter"))
-      .withColumn("holiday", functions.when(functions.dayofyear("date").isin(1, 25, 122, 245), "Holiday").otherwise("Not Holiday"))
+      .withColumn("winter_month", functions.when(functions.month($"date").isin(12, 1, 2), "Winter").otherwise("Not Winter"))
+      .withColumn("holiday", functions.when(functions.dayofyear($"date").isin(1, 25, 122, 245), "Holiday").otherwise("Not Holiday"))
       .select("date", "delay", "distance", "origin", "destination", "winter_month", "holiday")
       .orderBy(functions.col("delay").desc)
       .limit(10)
