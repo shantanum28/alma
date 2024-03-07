@@ -131,8 +131,8 @@ object assignment_03 {
     // Spark API Part IV
     val resultPartIVAPI = parquetDF
       .filter("origin = 'ORD'")
-      .write.mode("overwrite").parquet("orddeparturedelays.parquet")
       .limit(10)
+      .write.mode("overwrite").parquet("orddeparturedelays.parquet")
 
     resultPartIVAPI.show()
 
