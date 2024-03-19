@@ -38,13 +38,13 @@ salaries_df.write.format("jdbc") \
     .option("dbtable", "aces") \
     .option("user", "worker") \
     .option("password", "cluster") \
-    .mode("errorifexists") \
+    .mode("overwrite") \
     .save()
 
 # Write the DataFrame out to the local system as a CSV and save it to local system using snappy compression
 salaries_df.write.format("csv") \
     .option("compression", "snappy") \
-    .mode("errorifexists") \
+    .mode("overwrite") \
     .save("csv")
 
 # Part II
@@ -77,7 +77,7 @@ titles_df.write.format("jdbc") \
     .option("dbtable", "left_table") \
     .option("user", "worker") \
     .option("password", "cluster") \
-    .mode("errorifexists") \
+    .mode("overwrite") \
     .save()
 
 left_engineers_df.write.format("jdbc") \
@@ -86,7 +86,7 @@ left_engineers_df.write.format("jdbc") \
     .option("dbtable", "left_df") \
     .option("user", "worker") \
     .option("password", "cluster") \
-    .mode("errorifexists") \
+    .mode("overwrite") \
     .save()
 
 # Close SparkSession
