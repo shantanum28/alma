@@ -1,58 +1,47 @@
-package main.scala.assignment_01
-
-import org.apache.spark.sql.SparkSession
+package main.scala.assignment01
+import org.apache.spark.sql.{SparkSession, DataFrame}
 import org.apache.spark.sql.types._
 
-object assignment_01 {
+object Assignment01 {
   def main(args: Array[String]): Unit = {
-    val spark = SparkSession.builder
-      .appName("Scala Spark Schema Assignment")
-      .getOrCreate()
 
-    //Get file path from command line arguments
-    val file_path = if (args.length > 0) args(0) else "default/path/to/csv/file.csv"
+    val spark = SparkSession.builder.appName("Assignment01").getOrCreate()
 
-    // First read: Infer schema
-    val df1 = spark.read.option("header", "true").csv(file_path)
-    println("Inferred Schema:")
+    val csvFilePath = "/home/vagrant/jhajek/itmd-521/labs/week-04/scala/data/Divvy_Trips_2015-Q1.csv"
+
+    val df1 = spark.read.option("header", "true").csv(csvFilePath)
+    println("DataFrame 1:")
     df1.printSchema()
-    println("Number of records:", df1.count())
+    println("Record Count: " + df1.count())
 
-    // Second read: Programmatically define schema
-    val schema = StructType(Array(
-      StructField("trip_id", IntegerType, true),
-      StructField("starttime", StringType, false),
-      StructField("stoptime", StringType, true),
-      StructField("bikeid", IntegerType, true),
-      StructField("tripduration", IntegerType, true),
-      StructField("from_station_id", IntegerType, true),
-      StructField("from_station_name", StringType, false),
-      StructField("to_station_id", IntegerType, true),
-      StructField("to_station_name", StringType, true),
-      StructField("usertype", StringType, false),
-      StructField("gender", StringType, true),
-      StructField("birthyear", IntegerType, true)))
-    val df2 = spark.read.schema(schema).option("header", "true").csv(file_path)
-    println("Programmatically Defined Schema:")
+    val schema = new StructType()
+      .add(StructField("trip_id", IntegerType, true))
+      .add(StructField("bike_id", IntegerType, true))
+      .add(StructField("tripduration", StringType, true))
+      .add(StructField("gender", StringType, true))
+      .add(StructField("from_station_id", IntegerType, true))
+      .add(StructField("from_station_name", StringType, true))
+      .add(StructField("to_station_id", IntegerType, true))
+      .add(StructField("to_station_name", StringType, true))
+      .add(StructField("usertype", StringType, true))
+      .add(StructField("birthyear", IntegerType, true))
+
+    val df2 = spark.read.schema(schema).option("header", "true").csv(csvFilePath)
+    println("\nDataFrame 2:")
     df2.printSchema()
-    println("Number of records:", df2.count())
+    println("Record Count: " + df2.count())
 
-    // Third read: Schema via DDL
-    val ddl_schema = "trip_id INTEGER,starttime STRING,stoptime STRING,bikeid INTEGER,tripduration INTEGER,from_station_id INTEGER,from_station_name STRING,to_station_id INTEGER,to_station_name STRING,usertype STRING,gender STRING,birthyear INTEGER"
-    val df3 = spark.read.schema(ddl_schema).option("header", "true").csv(file_path)
-    println("Schema via DDL:")
+    val ddlSchema = "trip_id INT, bike_id INT, tripduration STRING, gender STRING, from_station_id INT, from_station_name STRING, to_station_id INT, to_station_name STRING, usertype STRING, birthyear INT"
+
+    val df3 = spark.read.option("header", "true").option("inferSchema", "false").schema(ddlSchema).csv(csvFilePath)
+    println("\nDataFrame 3:")
     df3.printSchema()
-    println("Number of records:", df3.count())
+    println("Record Count: " + df3.count())
 
-    // DataFrame operations
-    val gender_df = df1.select("*")
-      .where(df1("gender") === "Female")
-      .groupBy("to_station_name")
-      .count()
-    gender_df.show(10, truncate = false)
+    val dfFiltered = df3.select("gender", "from_station_name").filter((df3("from_station_name").between("A", "K") && df3("gender") === "Female") || (df3("from_station_name").between("L", "Z") && df3("gender") === "Male"))
+    val groupedDF = dfFiltered.groupBy("from_station_name").count()
+    groupedDF.show(10)
 
-
-    // Stop SparkSession
     spark.stop()
   }
 }
