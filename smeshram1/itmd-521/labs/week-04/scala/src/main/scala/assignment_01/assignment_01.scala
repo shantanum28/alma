@@ -1,4 +1,3 @@
-package main.scala.assignment_01
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.types.{StructType, StructField, StringType, IntegerType}
 
@@ -6,7 +5,7 @@ object assignment_01 {
   def main(args: Array[String]): Unit = {
     // Create SparkSession
     val spark = SparkSession.builder
-      .appName("Divvy Trips Analysis")
+      .appName("assignment_01")
       .getOrCreate()
 
     // Define schema
