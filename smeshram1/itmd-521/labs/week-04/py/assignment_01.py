@@ -1,71 +1,67 @@
+from os import truncate
 import sys
+from pyspark.sql.functions import col
+
 from pyspark.sql import SparkSession
-from pyspark.sql.types import StructType, StructField, StringType, IntegerType
-from pyspark.sql.functions import to_timestamp
-
-# Create SparkSession
-spark = SparkSession.builder \
-    .appName("Python Spark Schema") \
-    .getOrCreate()
-
-# Define file path
-file_path = sys.argv[1]
-
-# Set time parser policy to LEGACY
-spark.conf.set("spark.sql.legacy.timeParserPolicy", "LEGACY")
-
-# First read: Infer schema
-infer_df = spark.read.option("header", "true").option("inferSchema", "true").csv(file_path)
-print("Inferred Schema:")
-infer_df.printSchema()
-print("Number of records:", infer_df.count())
-
-# Second read: Programmatically define schema
-programmatically_schema = StructType([
-    StructField("trip_id", IntegerType(), True),
-    StructField("starttime", StringType(), True),
-    StructField("stoptime", StringType(), True),
-    StructField("bikeid", IntegerType(), True),
-    StructField("tripduration", IntegerType(), True),
-    StructField("from_station_id", IntegerType(), True),
-    StructField("from_station_name", StringType(), True),
-    StructField("to_station_id", IntegerType(), True),
-    StructField("to_station_name", StringType(), True),
-    StructField("usertype", StringType(), True),
-    StructField("gender", StringType(), False),
-    StructField("birthyear", IntegerType(), False)
-])
-
-programmatically_df = spark.read.schema(programmatically_schema).option("header", "true").csv(file_path)
-
-programmatically_df = programmatically_df.withColumn("starttime", to_timestamp(programmatically_df["starttime"], "MM/dd/yyyy HH:mm"))
-programmatically_df = programmatically_df.withColumn("stoptime", to_timestamp(programmatically_df["stoptime"], "MM/dd/yyyy HH:mm"))
+from pyspark.sql.functions import when
+from pyspark.sql.types import *
+from pyspark.sql.types import StructType, StructField, StringType, IntegerType, BooleanType, DoubleType
 
 
-print("Programmatically Defined Schema:")
-programmatically_df.printSchema()
-print("Number of records:", programmatically_df.count())
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        print("Usage: DivvyTrips <file>", file=sys.stderr)
+        sys.exit(-1)
+
+    # Create SparkSession
+    spark = SparkSession.builder.appName("Assignment 1").getOrCreate()
+    data_source = sys.argv[1]
+
+    # Inferring Schema
+    infer_divvy_df = spark.read.format("csv").option("header", "true").option("inferSchema", "true").load(data_source)
+    filtered_df = infer_divvy_df.where(col("gender") == "Female")
+    grouped_df = filtered_df.groupBy("to_station_name").count()
+    grouped_df.show(10)
+    print("Number of records: ", infer_divvy_df.count())
+    print("Schema Inferred Data Frame:")
+    # Print the schema
+    infer_divvy_df.printSchema()
 
 
-# Third read: Schema via DDL
-ddl_schema = "trip_id INT, starttime STRING, stoptime STRING, bikeid INT, tripduration INT, from_station_id INT, from_station_name STRING, to_station_id INT, to_station_name STRING, usertype STRING, gender STRING, birthyear INT"
-ddl_df = spark.read.schema(ddl_schema).option("header", "true").csv(file_path)
-ddl_schema = spark.read.schema(ddl_schema).option("header", "true").csv(file_path)
+    # Programmatically creating and attaching a schema using StructFields
+    struct_schema = StructType([
+        StructField("trip_id", IntegerType()),
+        StructField("starttime", StringType()),
+        StructField("stoptime", StringType()),
+        StructField("bikeid", IntegerType()),
+        StructField("tripduration", IntegerType()),
+        StructField("from_station_id", IntegerType()),
+        StructField("from_station_name", StringType()),
+        StructField("to_station_id", IntegerType()),
+        StructField("to_station_name", StringType()),
+        StructField("usertype", StringType()),
+        StructField("gender", StringType()),
+        StructField("birthyear", IntegerType())
+    ])
+    #programmability
+    struct_divvy_df = spark.read.schema(struct_schema).format("csv").option("header", "true").load(data_source)
+    female_df = struct_divvy_df.where(col("gender") == "Female")
+    fegrouped_df = female_df.groupBy("to_station_name").count()
+    fegrouped_df.show(10)
+    print("Number of records:", struct_divvy_df.count())
+    print("Programmatically Defined Schema:")
+    struct_divvy_df.printSchema()
+    
 
-ddl_df = ddl_df.withColumn("starttime", to_timestamp(ddl_df["starttime"], "MM/dd/yyyy HH:mm"))
-ddl_df = ddl_df.withColumn("stoptime", to_timestamp(ddl_df["stoptime"], "MM/dd/yyyy HH:mm"))
+    #ddl
+    ddl_schema = "trip_id INT, starttime STRING, stoptime STRING, bikeid INT, tripduration INT, from_station_id INT, from_station_name STRING, to_station_id INT, to_station_name STRING, usertype STRING, gender STRING, birthyear INT"
+    ddl_df = spark.read.schema(ddl_schema).format("csv").option("header", "true").load(data_source)
+    ddfemale_df = ddl_df.where(col("gender") == "Female")
+    ddlgrouped_df = ddfemale_df.groupBy("to_station_name").count()
+    ddlgrouped_df.show(10)
+    print("Number of records:", ddl_df.count())
+    print("\nSchema via DDL:")
+    ddl_df.printSchema()
 
-print("Schema via DDL:")
-ddl_df.printSchema()
-print("Number of records:", ddl_df.count())
-
-#sql
-gender_df = (infer_df.select("*")
-    .where(infer_df.gender == 'Female')
-    .groupBy("to_station_name")
-    .count())
-
-gender_df.show(n=10, truncate=False)
-
-# Stop SparkSession
-spark.stop()
+    # Stoping SparkSession
+    spark.stop()
