@@ -89,5 +89,14 @@ left_engineers_df.write.format("jdbc") \
     .mode("overwrite") \
     .save()
 
+left_engineers_df.write.format("jdbc") \
+    .option("url", "jdbc:mysql://localhost:3306/employees") \
+    .option("driver", "com.mysql.cj.jdbc.Driver") \
+    .option("dbtable", "left_tempview") \
+    .option("user", "worker") \
+    .option("password", "cluster") \
+    .mode("overwrite") \
+    .save()
+
 # Close SparkSession
 spark.stop()
