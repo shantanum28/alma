@@ -1,47 +1,60 @@
-package main.scala.assignment01
-import org.apache.spark.sql.{SparkSession, DataFrame}
-import org.apache.spark.sql.types._
+package main.scala.assignment_01
+import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.types.{StructType, StructField, StringType, IntegerType}
 
-object Assignment01 {
+object assignment_01 {
   def main(args: Array[String]): Unit = {
+    // Create SparkSession
+    val spark = SparkSession.builder
+      .appName("Divvy Trips Analysis")
+      .getOrCreate()
 
-    val spark = SparkSession.builder.appName("Assignment01").getOrCreate()
+    // Define schema
+    val customSchema = new StructType()
+      .add("trip_id", IntegerType, nullable = true)
+      .add("starttime", StringType, nullable = true)
+      .add("stoptime", StringType, nullable = true)
+      .add("bikeid", IntegerType, nullable = true)
+      .add("tripduration", IntegerType, nullable = true)
+      .add("from_station_id", IntegerType, nullable = true)
+      .add("from_station_name", StringType, nullable = true)
+      .add("to_station_id", IntegerType, nullable = true)
+      .add("to_station_name", StringType, nullable = true)
+      .add("usertype", StringType, nullable = true)
+      .add("gender", StringType, nullable = true)
+      .add("birthyear", StringType, nullable = true)
 
-    val csvFilePath = "/home/vagrant/jhajek/itmd-521/labs/week-04/scala/data/Divvy_Trips_2015-Q1.csv"
+    // Read CSV with inferred schema
+    val dfInferredSchema = spark.read.option("header", "true").csv("Divvy_Trips_2015-Q1.csv")
+    println("Inferred Schema:")
+    dfInferredSchema.printSchema()
+    println("Number of records: " + dfInferredSchema.count())
 
-    val df1 = spark.read.option("header", "true").csv(csvFilePath)
-    println("DataFrame 1:")
-    df1.printSchema()
-    println("Record Count: " + df1.count())
+    // Read CSV with programmatically defined schema
+    val dfProgrammaticSchema = spark.read.option("header", "true").schema(customSchema).csv("Divvy_Trips_2015-Q1.csv")
+    println("\nProgrammatic Schema:")
+    dfProgrammaticSchema.printSchema()
+    println("Number of records: " + dfProgrammaticSchema.count())
 
-    val schema = new StructType()
-      .add(StructField("trip_id", IntegerType, true))
-      .add(StructField("bike_id", IntegerType, true))
-      .add(StructField("tripduration", StringType, true))
-      .add(StructField("gender", StringType, true))
-      .add(StructField("from_station_id", IntegerType, true))
-      .add(StructField("from_station_name", StringType, true))
-      .add(StructField("to_station_id", IntegerType, true))
-      .add(StructField("to_station_name", StringType, true))
-      .add(StructField("usertype", StringType, true))
-      .add(StructField("birthyear", IntegerType, true))
+    // Read CSV with schema via DDL
+    val dfDDLSchema = spark.read.option("header", "true").csv("Divvy_Trips_2015-Q1.csv")
+    dfDDLSchema.createOrReplaceTempView("divvy_trips")
+    val dfDDLWithSchema = spark.sql("SELECT * FROM divvy_trips")
+    println("\nSchema via DDL:")
+    dfDDLWithSchema.printSchema()
+    println("Number of records: " + dfDDLWithSchema.count())
 
-    val df2 = spark.read.schema(schema).option("header", "true").csv(csvFilePath)
-    println("\nDataFrame 2:")
-    df2.printSchema()
-    println("Record Count: " + df2.count())
+    // Selecting Gender and filtering
+    val dfFiltered = dfDDLSchema.select("gender").filter(dfDDLSchema("gender").equalTo("Female") || dfDDLSchema("gender").equalTo("Male"))
+    println("\nFiltered DataFrame:")
+    dfFiltered.show(10)
 
-    val ddlSchema = "trip_id INT, bike_id INT, tripduration STRING, gender STRING, from_station_id INT, from_station_name STRING, to_station_id INT, to_station_name STRING, usertype STRING, birthyear INT"
+    // Select gender based on last name and group by station
+    val selectedGender = dfDDLWithSchema.selectExpr("CASE WHEN substring(gender, 1, 1) >= 'A' AND substring(gender, 1, 1) <= 'K' THEN 'Female' ELSE 'Male' END AS selected_gender", "to_station_name").groupBy("to_station_name").count()
+    println("\nSelected Gender:")
+    selectedGender.show(10)
 
-    val df3 = spark.read.option("header", "true").option("inferSchema", "false").schema(ddlSchema).csv(csvFilePath)
-    println("\nDataFrame 3:")
-    df3.printSchema()
-    println("Record Count: " + df3.count())
-
-    val dfFiltered = df3.select("gender", "from_station_name").filter((df3("from_station_name").between("A", "K") && df3("gender") === "Female") || (df3("from_station_name").between("L", "Z") && df3("gender") === "Male"))
-    val groupedDF = dfFiltered.groupBy("from_station_name").count()
-    groupedDF.show(10)
-
+    // Stop the SparkSession
     spark.stop()
   }
 }
