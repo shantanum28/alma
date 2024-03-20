@@ -1,19 +1,16 @@
 from pyspark.sql import SparkSession
 from pyspark.sql.types import StructType, StructField, StringType, IntegerType
 
-# Initializing SparkSession
-spark = SparkSession.builder \
-    .appName("Unique Divvy Trips Analysis") \
-    .getOrCreate()
+# Step 1: Create Spark Session & Read the Divvy_Trips_2015-Q1.csv file and infer the schema
+spark = SparkSession.builder.appName("DivvyTrips").getOrCreate()
+df_inferred = spark.read.csv("Divvy_Trips_2015-Q1.csv", header=True, inferSchema=True)
 
-# Reading CSV data with inferred schema
-df_inferred_schema = spark.read.option("header", True).csv("Divvy_Trips_2015-Q1.csv")
-print("DataFrame with inferred schema:")
-df_inferred_schema.printSchema()
-print("Number of records read:", df_inferred_schema.count())
+# Step 2: Print the inferred schema
+print("Inferred Schema:")
+df_inferred.printSchema()
 
-# Creating schema programmatically and reading CSV
-programmatic_schema = StructType([
+# Step 3: Programmatically use StructFields to create and attach a schema
+schema = StructType([
     StructField("trip_id", IntegerType(), True),
     StructField("starttime", StringType(), True),
     StructField("stoptime", StringType(), True),
@@ -25,29 +22,60 @@ programmatic_schema = StructType([
     StructField("to_station_name", StringType(), True),
     StructField("usertype", StringType(), True),
     StructField("gender", StringType(), True),
-    StructField("birthyear", StringType(), True)
+    StructField("birthyear", IntegerType(), True)
 ])
-df_programmatic_schema = spark.read.option("header", True).schema(programmatic_schema).csv("Divvy_Trips_2015-Q1.csv")
-print("\nDataFrame with programmatically created schema:")
-df_programmatic_schema.printSchema()
-print("Number of records processed:", df_programmatic_schema.count())
 
-# Attaching schema via DDL and reading CSV
-ddl_schema = "trip_id INT, starttime STRING, stoptime STRING, bikeid INT, tripduration INT, from_station_id INT, from_station_name STRING, to_station_id INT, to_station_name STRING, usertype STRING, gender STRING, birthyear STRING"
-df_ddl_schema = spark.read.option("header", True).schema(ddl_schema).csv("Divvy_Trips_2015-Q1.csv")
-print("\nDataFrame with schema attached via DDL:")
-df_ddl_schema.printSchema()
-print("Number of records processed:", df_ddl_schema.count())
+df_programmatic = spark.read.csv("Divvy_Trips_2015-Q1.csv", header=True, schema=schema)
 
-# Selecting Gender and filtering
-df_filtered = df_ddl_schema.select("gender").filter((df_ddl_schema["gender"] == "Female") | (df_ddl_schema["gender"] == "Male"))
-print("\nFiltered DataFrame:")
-df_filtered.show(10)
+# Print the programmatically attached schema
+print("\nProgrammatically Attached Schema:")
+df_programmatic.printSchema()
 
-# GroupingBy station
-df_grouped = df_ddl_schema.groupBy("to_station_name").count()
-print("\nGrouped DataFrame:")
-df_grouped.show(10)
+# Step 4: Attach a schema via DDL and read the CSV file
+ddl_schema = """
+    trip_id INT,
+    starttime STRING,
+    stoptime STRING,
+    bikeid INT,
+    tripduration INT,
+    from_station_id INT,
+    from_station_name STRING,
+    to_station_id INT,
+    to_station_name STRING,
+    usertype STRING,
+    gender STRING,
+    birthyear INT
+"""
 
-# Stopping SparkSession
+df_ddl = spark.read.option("header", "true").option("inferSchema", "false").schema(ddl_schema).csv("Divvy_Trips_2015-Q1.csv")
+
+# Print the DDL attached schema
+print("\nDDL Attached Schema:")
+df_ddl.printSchema()
+
+# Step 5: Use .count() to display the number of records in each DataFrame
+print("\nNumber of Records in Each DataFrame:")
+print("Inferred Schema DataFrame Count:", df_inferred.count())
+print("Programmatically Attached Schema DataFrame Count:", df_programmatic.count())
+print("DDL Attached Schema DataFrame Count:", df_ddl.count())
+
+#Step 6: Transformation and Action
+
+# Register DataFrame as a temporary view
+df_inferred.createOrReplaceTempView("divvy_trips")
+
+# Execute the SQL query 
+result = spark.sql("""
+    SELECT gender, to_station_name, count(*) as count
+    FROM divvy_trips 
+    WHERE gender = 'Female' 
+    GROUP BY gender, to_station_name
+    ORDER BY count DESC
+""")
+
+# Show the top 10 records
+result.show(10)
+
+
+# Stop the SparkSession
 spark.stop()
