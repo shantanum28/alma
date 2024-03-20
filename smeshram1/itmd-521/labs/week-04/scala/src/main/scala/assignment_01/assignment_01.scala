@@ -1,77 +1,56 @@
-package main.scala.assignment_01
+import org.apache.spark.sql.{SparkSession, DataFrame}
+import org.apache.spark.sql.types._
 
-import org.apache.spark.sql.SparkSession
-import org.apache.spark.sql.functions
-import org.apache.spark.sql.types
-
-object assignment_01 {
+object Assignment01 {
   def main(args: Array[String]): Unit = {
-    val spark = SparkSession.builder.appName("Assignment1").getOrCreate()
-    if (args.length < 1) {
-      println("Usage: DivvySet <Divvy_file_dataset>")
-      spark.stop()
-      return
-    }
+    // Initialize Spark session
+    val spark = SparkSession.builder.appName("Assignment01").getOrCreate()
 
-    val data_source = args(0)
+    // Define file path
+    val csvPath = "/home/vagrant/sshah215/itmd-521/labs/week-4/Divvy_Trips_2015-Q1.csv"
 
-    // Inferred Schema
-    val infer_divvy_df = spark.read.format("csv")
-      .option("header", "true")
-      .option("inferSchema", "true")
-      .load(data_source)
+    // Step 1: Read CSV with inferred schema
+    val df1 = spark.read.option("header", "true").csv(csvPath)
+    printSchemaAndCount("Inferred Schema", df1)
 
-    val filtered_infer_df = infer_divvy_df.where(col("gender") === "Female")
-    val grouped_infer_df = filtered_infer_df.groupBy("to_station_name").count()
-    println("Inferred Schema - Top 10 Female Destinations:")
-    grouped_infer_df.show(10)
-    println("Count with Inferred Schema: " + infer_divvy_df.count())
-    println("Schema for Inferred Data Frame:")
-    infer_divvy_df.printSchema()
+    // Show 10 records
+    df1.show(10)
 
-    // Programmatically Defined Schema
-    val struct_schema = StructType(Array(
-      StructField("trip_id", IntegerType),
-      StructField("starttime", StringType),
-      StructField("stoptime", StringType),
-      StructField("bikeid", IntegerType),
-      StructField("tripduration", IntegerType),
-      StructField("from_station_id", IntegerType),
-      StructField("from_station_name", StringType),
-      StructField("to_station_id", IntegerType),
-      StructField("to_station_name", StringType),
-      StructField("usertype", StringType),
-      StructField("gender", StringType),
-      StructField("birthyear", IntegerType)))
+    // Step 2: Programmatically use StructFields to create and attach a schema
+    val schema = StructType(
+      StructField("col1", StringType, true) ::
+      StructField("col2", IntegerType, true) ::
+      // Add more fields based on your CSV structure
+      Nil
+    )
+    val df2 = spark.read.option("header", "true").schema(schema).csv(csvPath)
+    printSchemaAndCount("Programmatic Schema", df2)
 
-    val struct_divvy_df = spark.read.schema(struct_schema).format("csv")
-      .option("header", "true")
-      .load(data_source)
+    // Show 10 records
+    df2.show(10)
 
-    val female_struct_df = struct_divvy_df.where(col("gender") === "Female")
-    val grouped_struct_df = female_struct_df.groupBy("to_station_name").count()
+    // Step 3: Attach a schema via DDL and read the CSV file
+    val ddlSchema = "col1 STRING, col2 INT"  // Define DDL schema based on your CSV structure
+    val df3 = spark.read.option("header", "true").option("inferSchema", "false").schema(ddlSchema).csv(csvPath)
+    printSchemaAndCount("DDL Schema", df3)
 
-    println("Programmatically Defined Schema - Top 10 Female Destinations:")
-    grouped_struct_df.show(10)
-    println("Count with Programmatically Defined Schema: " + struct_divvy_df.count())
-    println("Schema for Programmatically Defined Data Frame:")
-    struct_divvy_df.printSchema()
+    // Show 10 records
+    df3.show(10)
 
-    // DDL String Schema
-    val ddl_schema = "trip_id INT, starttime STRING, stoptime STRING, bikeid INT, tripduration INT, from_station_id INT, from_station_name STRING, to_station_id INT, to_station_name STRING, usertype STRING, gender STRING, birthyear INT"
-    val ddl_divvy_df = spark.read.schema(ddl_schema).format("csv")
-      .option("header", "true")
-      .load(data_source)
+    // Transformations and Actions
+    val selectedDF = df1.select("Gender").filter(df1("LastName").startsWith("A-K")).filter(df1("Gender") === "Female")
+    val groupedDF = selectedDF.groupBy("station_name").count()
 
-    val female_ddl_df = ddl_divvy_df.where(col("gender") === "Female")
-    val grouped_ddl_df = female_ddl_df.groupBy("to_station_name").count()
+    // Show 10 records
+    groupedDF.show(10)
 
-    println("DDL Schema - Top 10 Female Destinations:")
-    grouped_ddl_df.show(10)
-    println("Count with DDL Schema: " + ddl_divvy_df.count())
-    println("Schema for DDL Data Frame:")
-    ddl_divvy_df.printSchema()
-
+    // Stop Spark session
     spark.stop()
+  }
+
+  def printSchemaAndCount(message: String, df: DataFrame): Unit = {
+    println(s"$message Schema:")
+    df.printSchema()
+    println(s"Count: ${df.count()}\n")
   }
 }
