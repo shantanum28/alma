@@ -1,58 +1,56 @@
-#First infer the schema and read the csv file
 import sys
 from pyspark.sql import SparkSession
-from pyspark.sql.types import *
-if __name__ == "__main__":
-      if len(sys.argv) != 2:
-        print("Usage: mnmcount <file>", file=sys.stderr)
+from pyspark.sql.types import StructType, StructField, IntegerType, StringType
+
+def main():
+    if len(sys.argv) != 2:
+        print("Usage: DivvyTrips <file>", file=sys.stderr)
         sys.exit(-1)
-      spark = (SparkSession
-      .builder
-      .appName("Divya_Trips")
-      .getOrCreate())
-      fire_schema = StructType([StructField('CallNumber', IntegerType(), True),
-    StructField('UnitID', StringType(), True),
-    StructField('IncidentNumber', IntegerType(), True),
-    StructField('CallType', StringType(), True),
-    StructField('CallDate', StringType(), True),
-    StructField('WatchDate', StringType(), True),
-    StructField('CallFinalDisposition', StringType(), True),
-    StructField('AvailableDtTm', StringType(), True),
-    StructField('Address', StringType(), True),
-    StructField('City', StringType(), True),
-    StructField('Zipcode', IntegerType(), True),
-    StructField('Battalion', StringType(), True),
-    StructField('StationArea', StringType(), True),
-    StructField('Box', StringType(), True),
-    StructField('OriginalPriority', StringType(), True),
-    StructField('Priority', StringType(), True),
-    StructField('FinalPriority', IntegerType(), True),
-    StructField('ALSUnit', BooleanType(), True),
-    StructField('CallTypeGroup', StringType(), True),
-    StructField('NumAlarms', IntegerType(), True),
-    StructField('UnitType', StringType(), True),
-    StructField('UnitSequenceInCallDispatch', IntegerType(), True),
-    StructField('FirePreventionDistrict', StringType(), True),
-    StructField('SupervisorDistrict', StringType(), True),
-    StructField('Neighborhood', StringType(), True),
-    StructField('Location', StringType(), True),
-    StructField('RowID', StringType(), True),
-    StructField('Delay', FloatType(), True)])
-      csv_file = sys.argv[1]
-      sampleDF = spark.read.option("samplingRatio", 0.001) .option("header", True) .csv(csv_file)
-      print(sampleDF.printSchema())
 
+    spark = SparkSession.builder.appName("Assignment 1").getOrCreate()
+    data_source = sys.argv[1]
 
-      schema2 = "trip_id STRING, starttime STRING, stoptime STRING, bikeid STRING, tripduration STRING, from_station_id STRING, from_station_name STRING, to_station_id STRING, to_station_name STRING, usertype STRING, gender STRING, birthyear STRING"
-      csv_file = sys.argv[1]
-      sampleDF = spark.read.option("samplingRatio", 0.001) .option("header", True) .csv(csv_file)
-      data_frame=spark.read.csv(csv_file, header=True, schema=schema)
-      data_frame2=spark.read.csv(csv_file, header=True, schema=schema2)
-      print(sampleDF.printSchema())
-      print(sampleDF.count())
-      print(data_frame.printSchema())
-      print(data_frame.count())
-      print(data_frame2.printSchema())
-      print(data_frame2.count())
-      final_data_frame = spark .read.option("samplingRatio", 0.001) .option("header", True) .csv(csv_file)
-      (final_data_frame.select("gender","to_station_name").where(final_data_frame.gender=="Female").groupBy("gender","to_station_name").count().show(10,truncate=False))
+    # Inferring Schema
+    infer_divvy_df = spark.read.option("header", "true").option("inferSchema", "true").csv(data_source)
+    print_data_frame_info("Inferring Schema:", infer_divvy_df, 10)
+
+    # Programmatically creating and attaching a schema using StructFields
+    struct_schema = StructType([
+        StructField("trip_id", IntegerType()),
+        StructField("starttime", StringType()),
+        StructField("stoptime", StringType()),
+        StructField("bikeid", IntegerType()),
+        StructField("tripduration", IntegerType()),
+        StructField("from_station_id", IntegerType()),
+        StructField("from_station_name", StringType()),
+        StructField("to_station_id", IntegerType()),
+        StructField("to_station_name", StringType()),
+        StructField("usertype", StringType()),
+        StructField("gender", StringType()),
+        StructField("birthyear", IntegerType())
+    ])
+    struct_divvy_df = spark.read.schema(struct_schema).option("header", "true").csv(data_source)
+    print_data_frame_info("\nProgrammatically Defined Schema:", struct_divvy_df, 10)
+
+    # Attaching a schema via DDL
+    ddl_schema = "trip_id INT, starttime STRING, stoptime STRING, bikeid INT, tripduration INT, from_station_id INT, from_station_name STRING, to_station_id INT, to_station_name STRING, usertype STRING, gender STRING, birthyear INT"
+    ddl_df = spark.read.option("header", "true").schema(ddl_schema).csv(data_source)
+    print_data_frame_info("\nSchema via DDL:", ddl_df, 10)
+
+    # Selecting Gender and Grouping by station to name
+    select_gender_df = infer_divvy_df.select("gender", "to_station_name") \
+        .filter((infer_divvy_df["gender"] == "Female") | (infer_divvy_df["gender"] == "Female")) \
+        .groupBy("to_station_name").count()
+
+    print_data_frame_info("\nFiltered by gender and grouped by station to:", select_gender_df, 10)
+
+    spark.stop()
+
+def print_data_frame_info(title, df, num_rows=None):
+    print(title)
+    df.show(truncate=False, n=num_rows)
+    df.printSchema()
+    print(f"Number of records: {df.count()}\n")
+
+if __name__ == "__main__":
+    main()
