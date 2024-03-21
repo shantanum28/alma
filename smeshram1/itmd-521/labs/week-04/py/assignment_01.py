@@ -1,57 +1,65 @@
+from ctypes import Array
 import sys
 from pyspark.sql import SparkSession
-from pyspark.sql.types import *
+from pyspark.sql import types
+from pyspark.sql.functions import count
+from pyspark.sql.functions import col
 
 if __name__ == "__main__":
-    spark = (SparkSession
-             .builder
-             .appName("PythonDivvyTrips")
-             .getOrCreate())
+    if len(sys.argv) != 2:
+        print("Usage: assignment-01 <file>", file=sys.stderr)
+        sys.exit(-1)
 
-    dt_file = "/home/vagrant/gdhore/itmd-521/labs/week-04/Divvy_Trips_2015-Q1.csv"
-    dt_df = (spark.read.format("csv")
-             .option("header", "True")
-             .option("inferSchema", "True")
-             .load(dt_file))
+    spark = (SparkSession.builder.appName("Assignment01").getOrCreate())
+    divvy_trips_file = sys.argv[1]
 
-    print(dt_df.printSchema())
+    dt_df_inf_sch = (spark.read.format("csv")
+                .option("header", "true")
+                .option("inferSchema", "true")
+                .load(divvy_trips_file))
+    
+    print('Data read with inferred Schema')
+    dt_df_inf_sch.printSchema()
+    print('Row count from inferred schema DF', dt_df_inf_sch.count())
 
-    print("Total Rows = %d" % (dt_df.count()))
+    cust_schema = types.StructType([
+      types.StructField("trip_id", types.IntegerType(), nullable = True),
+      types.StructField("starttime", types.StringType(), nullable = True),
+      types.StructField("stoptime", types.StringType(), nullable = True),
+      types.StructField("bikeid", types.IntegerType(), nullable = True),
+      types.StructField("tripduration", types.IntegerType(), nullable = True),
+      types.StructField("from_station_id", types.IntegerType(), nullable = True),
+      types.StructField("from_station_name", types.StringType(), nullable = True),
+      types.StructField("to_station_id", types.IntegerType(), nullable = True),
+      types.StructField("to_station_name", types.StringType(), nullable = True),
+      types.StructField("usertype", types.StringType(), nullable = True),
+      types.StructField("gender", types.StringType(), nullable = True),
+      types.StructField("birthyear", types.IntegerType(), nullable = True)
+    ])
 
-    from pyspark.sql.functions import col
+    dt_df_cust_sch = (spark.read
+                .option("header", "true")
+                .schema(cust_schema)
+                .csv(divvy_trips_file))
+    
+    print('Data read with custom Schema using StructType')
+    dt_df_cust_sch.printSchema()
+    print('Row count from custom schema DF',dt_df_cust_sch.count())
+    
+    ddl_schema = "trip_id INT, starttime STRING, stoptime STRING, bikeid INT, tripduration INT, from_station_id INT, from_station_name STRING, to_station_id INT, to_station_name STRING, usertype STRING, gender STRING, birthyear INT"
 
-    dt_female = dt_df.select("*").filter(col("gender") == "Female")
+    dt_df_ddl_sch = (spark.read
+                .option("header", "true")
+                .option("inferSchema", "false")
+                .schema(ddl_schema)
+                .csv(divvy_trips_file))
+    
+    print('Data read with DDL Schema')
+    dt_df_ddl_sch.printSchema()
+    print('Row count from DDL schema DF',dt_df_ddl_sch.count())
 
-    dt_grouped = dt_female.groupBy("to_station_name").count()
+    female_only_df = dt_df_ddl_sch.filter(col("gender") == "Female")
 
-    dt_grouped.show(10)
-
-    Pschema = StructType([StructField('trip_id', IntegerType(), True),
-                          StructField('starttime', StringType(), True),
-                          StructField('stoptime', StringType(), True),
-                          StructField('bikeid', IntegerType(), True),
-                          StructField('tripduration', IntegerType(), True),
-                          StructField('from_station_id', IntegerType(), True),
-                          StructField('from_station_name', StringType(), True),
-                          StructField('to_station_id', IntegerType(), True),
-                          StructField('to_station_name', StringType(), True),
-                          StructField('usertype', StringType(), True),
-                          StructField('gender', StringType(), True),
-                          StructField('birthyear', IntegerType(), True)])
-
-    dt_df_schema = spark.read.csv(dt_file, header=True, schema=Pschema)
-
-    print(dt_df_schema.printSchema())
-    print(dt_df_schema.schema)
-
-    print("Total Rows = %d" % (dt_df_schema.count()))
-
-    DDLschema = "trip_id INT, starttime STRING, stoptime STRING, bikeid INT, tripduration INT, from_station_id INT, from_station_name STRING, to_station_id INT, to_station_name STRING, usertype STRING, gender STRING, birthyear INT"
-
-    dt_df_DDLschema = spark.read.csv(dt_file, header=True, schema=DDLschema)
-
-    print(dt_df_DDLschema.printSchema())
-
-    print("Total Rows = %d" % (dt_df_DDLschema.count()))
+    female_only_df.groupBy("to_station_name").count().show(10)
 
     spark.stop()
