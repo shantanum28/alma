@@ -1,55 +1,64 @@
+from __future__ import print_function
 import sys
 from pyspark.sql import SparkSession
-from pyspark.sql.types import StructType, StructField, StringType, IntegerType
+from pyspark.sql.types import StructType, StructField, IntegerType, StringType
 
-# Create a SparkSession
-spark = SparkSession.builder \
-    .appName("My Spark Assignment - Python") \
-    .getOrCreate()
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        print("Usage: assignment_01.py <file>", file=sys.stderr)
+        sys.exit(-1)
 
-# Path to the CSV file
-csv_file_path = sys.argv[1]
+    spark = SparkSession.builder.appName("assignment_01").getOrCreate()
 
-# First DataFrame: Infer Schema
-df_infer_schema = spark.read.csv(csv_file_path, header=True, inferSchema=True)
-print("DataFrame with Inferred Schema:")
-df_infer_schema.printSchema()
-print("Total Records:", df_infer_schema.count())
+    file_path = sys.argv[1]
 
-# Second DataFrame: Programmatically Define Schema
-schema = StructType([
-    StructField("trip_id", IntegerType(), True),
-    StructField("starttime", StringType(), True),
-    StructField("stoptime", StringType(), True),
-    StructField("bikeid", IntegerType(), True),
-    StructField("tripduration", StringType(), True),
-    StructField("from_station_name", StringType(), True),
-    StructField("to_station_name", StringType(), True),
-    StructField("usertype", StringType(), True),
-    StructField("gender", StringType(), True),
-    StructField("birthyear", StringType(), True)
-])
-df_programmatic_schema = spark.read.csv(csv_file_path, header=True, schema=schema)
-print("DataFrame with Programmatically Defined Schema:")
-df_programmatic_schema.printSchema()
-print("Total Records:", df_programmatic_schema.count())
+    # Inferred schema
+    df1 = spark.read.option("header", True).csv(file_path)
+    print("DataFrame 1 - Inferred Schema:")
+    df1.printSchema()
+    print("Number of Records:", df1.count())
 
-# Third DataFrame: Attach Schema via DDL
-ddl_schema = "trip_id INT, starttime STRING, stoptime STRING, bikeid INT, tripduration STRING, from_station_name STRING, to_station_name STRING, usertype STRING, gender STRING, birthyear STRING"
-df_ddl_schema = spark.read.csv(csv_file_path, header=True, schema=ddl_schema)
-print("DataFrame with Schema Attached via DDL:")
-df_ddl_schema.printSchema()
-print("Total Records:", df_ddl_schema.count())
+    # Programmatically defined schema
+    schema = StructType([
+        StructField("trip_id", IntegerType(), True),
+        StructField("starttime", StringType(), True),
+        StructField("stoptime", StringType(), True),
+        StructField("bikeid", IntegerType(), True),
+        StructField("tripduration", IntegerType(), True),
+        StructField("from_station_id", IntegerType(), True),
+        StructField("from_station_name", StringType(), True),
+        StructField("to_station_id", IntegerType(), True),
+        StructField("to_station_name", StringType(), True),
+        StructField("usertype", StringType(), True),
+        StructField("gender", StringType(), True),
+        StructField("birthyear", IntegerType(), True),
+    ])
 
-# Select Gender based on last name
-last_name = ""
-gender = "female" if last_name.lower() <= "k" else "male"
-print("Selected Gender based on last name:", gender)
+    df2 = spark.read.option("header", True).schema(schema).csv(file_path)
+    print("\nDataFrame 2 - Programmatically Defined Schema:")
+    df2.printSchema()
+    print("Number of Records:", df2.count())
 
-# GroupBy station_name and show 10 records
-df_grouped = df_infer_schema.groupBy("to_station_name").count()
-print("Grouped DataFrame:")
-df_grouped.show(10)
+    # DDL-defined schema
+    ddl_schema = "trip_id INT, starttime STRING, stoptime STRING, bikeid INT, tripduration INT, " \
+                "from_station_id INT, from_station_name STRING, to_station_id INT, to_station_name STRING, " \
+                "usertype STRING, gender STRING, birthyear INT"
 
-# Stop the SparkSession
-spark.stop()
+    df3 = spark.read.option("header", True).option("inferSchema", False).schema(ddl_schema).csv(file_path)
+    print("\nDataFrame 3 - DDL Defined Schema:")
+    df3.printSchema()
+    print("Number of Records:", df3.count())
+
+    last_name = "meshram"
+    last_name_starts_with_a_to_k = "A" <= last_name[0].upper() <= "K"
+    selected_gender = "Female" if last_name_starts_with_a_to_k else "Male"
+    print(f"\nSelected Gender: {selected_gender}")
+
+    filtered_df = df3.filter(df3["gender"] == selected_gender)
+
+    grouped_df = filtered_df.groupBy("to_station_name").count()
+
+    print("\nGroupBy to_station_name and Display 10 Records:")
+    grouped_df.limit(10).show(truncate=False)
+
+    spark.stop()
