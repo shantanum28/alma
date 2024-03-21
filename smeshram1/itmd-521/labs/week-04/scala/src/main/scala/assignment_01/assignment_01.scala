@@ -2,57 +2,65 @@ package main.scala.assignment_01
 
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types._
+import org.apache.spark.sql.types.{StructType, StructField, StringType, IntegerType,TimestampType}
 
-object assignment_01 {
-
-  def main(args: Array[String]): Unit = {
-    val spark = SparkSession.builder.appName("Assignment1").getOrCreate()
+object  assignment_01 {
+  def main(args: Array[String]) {
+    val spark = SparkSession.builder
+      .appName("assignment_01")
+      .getOrCreate()
 
     if (args.length < 1) {
-      println("Usage: DivvySet <Divvy_file_dataset>")
-      spark.stop()
       sys.exit(1)
     }
 
-    val data_source = args(0)
+    val filePath = args(0)
+    // First read: Infer schema
+    val df1 = spark.read.option("header", "true").csv(filePath)
+    println("Inferred Schema:")
+    df1.printSchema()
+    println("Number of records:", df1.count())
 
-    // Read CSV with inferred schema
-    val infer_divvy_df = spark.read.option("header", "true").option("inferSchema", "true").csv(data_source)
-    printDataFrameInfo("Schema Inferred Data Frame:", infer_divvy_df)
+    // Second read: Programmatically define schema
+    val schema = new StructType()
+    .add("trip_id", IntegerType, nullable = true)
+    .add("starttime", TimestampType, nullable = true)
+    .add("stoptime", TimestampType, nullable = true)
+    .add("bikeid", IntegerType, nullable = true)
+    .add("tripduration", IntegerType, nullable = true)
+    .add("from_station_id", IntegerType, nullable = true)
+    .add("from_station_name", StringType, nullable = true)
+    .add("to_station_id", IntegerType, nullable = true)
+    .add("to_station_name", StringType, nullable = true)
+    .add("usertype", StringType, nullable = true)
+    .add("gender", StringType, nullable = true)
+    .add("birthyear", IntegerType, nullable = true)
 
-    // Define StructType schema
-    val struct_schema = StructType(
-      Seq("trip_id", "bikeid", "tripduration", "from_station_id", "to_station_id", "birthyear")
-        .map(field => StructField(field, IntegerType)) ++
-        Seq("starttime", "stoptime", "from_station_name", "to_station_name", "usertype", "gender")
-          .map(field => StructField(field, StringType))
-    )
+    val df2 = spark.read.schema(schema).option("header", "true").csv(filePath)
+    println("Programmatically Defined Schema:")
+    df2.printSchema()
+    println("Number of records:", df2.count())
 
-    // Read CSV with StructType schema
-    val struct_divvy_df = spark.read.schema(struct_schema).option("header", "true").csv(data_source)
-    printDataFrameInfo("Programmatically Defined Schema:", struct_divvy_df)
+    // Third read: Schema via DDL
+    val ddlSchema = "trip_id INT, starttime TIMESTAMP, stoptime TIMESTAMP, bikeid INT, tripduration INT, from_station_id INT, from_station_name STRING, to_station_id INT, to_station_name STRING, usertype STRING, gender STRING, birthyear INT"
+    val df3 = spark.read.schema(ddlSchema).option("header", "true").csv(filePath)
+    println("Schema via DDL:")
+    df3.printSchema()
+    println("Number of records:", df3.count())
 
-    // Define DDL schema
-    val ddl_schema = "trip_id INT, starttime STRING, stoptime STRING, bikeid INT, tripduration INT, from_station_id INT, from_station_name STRING, to_station_id INT, to_station_name STRING, usertype STRING, gender STRING, birthyear INT"
 
-    // Read CSV with DDL schema
-    val ddl_df = spark.read.schema(ddl_schema).option("header", "true").csv(data_source)
-    printDataFrameInfo("DDL Schema Data Frame:", ddl_df)
+    val stationTo = df1
+    .select("trip_id", "to_station_name", "gender")
+    .where(col("gender") === "Female")
+    .groupBy("to_station_name")
+    .count()
 
-    // Filter and group by gender
-    val female_to_station_df = infer_divvy_df.filter("gender = 'Female'").groupBy("to_station_name").count()
-    printDataFrameInfo("Female Gender Data Frame grouped by to_station_name:", female_to_station_df, Some(10))
+    println("\nGrouped Data:")
+    stationTo.show(10)
+
+    println(df1.printSchema)
+    println(df1.schema)
 
     spark.stop()
-  }
-
-  // Helper function to print DataFrame information
-  def printDataFrameInfo(title: String, df: org.apache.spark.sql.DataFrame, numRows: Option[Int] = None): Unit = {
-    println(title)
-    df.printSchema()
-    println(s"Count: ${df.count()}")
-    numRows.foreach(n => df.show(n))
-    println()
   }
 }
