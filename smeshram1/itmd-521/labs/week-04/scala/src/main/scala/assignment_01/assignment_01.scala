@@ -1,87 +1,81 @@
-// Import Spark libraries
 package main.scala.assignment_01
-import org.apache.spark.sql.SparkSession
-import org.apache.spark.sql.types._
-import org.apache.spark.sql.functions._
 
-// Create object assignment_01
+import org.apache.spark.sql.SparkSession
+import org.apache.spark.sql.functions._
+import org.apache.spark.sql.types._
+
 object assignment_01 {
     def main(args: Array[String]){
-
-    //Create spark session
-    val spark = SparkSession
-                .builder
-                .appName("Divvy Trip Analysis 2015")
-                .getOrCreate()
-    if (args.length < 1){
-        println("Usage: DivvyTripData <file>")
+      if (args.length < 1){
+        println("Usage: DivvyTripsAnalysis <path to file>")
         sys.exit(-1)
-    }
+      }
+    
+    // Creating SparkSession
+    val spark = SparkSession
+        .builder
+        .appName("Divvy Trips Analysis")
+        .getOrCreate()
 
-    // get divvy data filename and convert to spark dataframe
-    val divvy_data = args(0)
-    println(s"Divvy Schema Inferred:")
-    val df_inferred = spark.read.format("csv")
+    // Get Divvy Trips data set filename
+    val divvy_data_file = args(0)
+
+    // Inferring printSchema and printing the count
+    val infer_trips_df = spark.read.format("csv")
         .option("header", "true")
         .option("inferSchema", "true")
-        .load(divvy_data)
-    df_inferred.printSchema()
+        .load(divvy_data_file)
 
-    // Print the total Records
-    println(s"Total Row Count: ${df_inferred.count()}")
+    println("Scala inferred printSchema for Divvy Trips")
+    infer_trips_df.printSchema()
+    println(s"Total number of Divvy trips: ${infer_trips_df.count()}")
 
-    //define the schema by program
-    println(s"Divvy Schema defined programatically in Scala:")
-    val divvy_schema = StructType(Array(
-        StructField("trip_id", IntegerType, true),
-        StructField("starttime", StringType, true),
-        StructField("stoptime", StringType, true),
-        StructField("bikeid", IntegerType, true),
-        StructField("tripduration", IntegerType, true),
-        StructField("from_station_id", IntegerType, true),
-        StructField("from_station_name", StringType, true),
-        StructField("to_station_id", IntegerType, true),
-        StructField("to_station_name", StringType, true),
-        StructField("usertype", StringType, true),
-        StructField("gender", StringType, true),
-        StructField("birthyear", IntegerType, true)
-    ))
+    // Reading datafile programmatically and printing the count
+    println("Scala Programmatic printSchema for Divvy Trips")
+    val struct_divvy_schema = StructType(Array(
+      StructField("trip_id", IntegerType, true),
+      StructField("starttime", StringType, true),
+      StructField("stoptime", StringType, true),
+      StructField("bikeid", IntegerType, true),
+      StructField("tripduration", IntegerType, true),
+      StructField("from_station_id", IntegerType, true),
+      StructField("from_station_name", StringType, true),
+      StructField("to_station_id", IntegerType, true),
+      StructField("to_station_name", StringType, true),
+      StructField("usertype", StringType, true),
+      StructField("gender", StringType, true),
+      StructField("birthyear", IntegerType, true)))
 
-    // Read the csv file with above defined schema
-    val df_divvy_struct = spark.read.format("csv")
-        .option("header", "true")
-        .schema(divvy_schema)
-        .load(divvy_data)
-    df_divvy_struct.printSchema()
+    val prog_trips_df = spark.read.format("csv")
+      .option("header", "true")
+      .schema(struct_divvy_schema)
+      .load(divvy_data_file)
 
-    // Print the total Records
-    println(s"Total Row Count: ${df_divvy_struct.count()}")
+    prog_trips_df.printSchema()
+    println(s"Total number of Divvy trips: ${prog_trips_df.count()}")
 
-    // Define schema in DDL
-    println(s"Divvy Schema defined using DDL:")
-    val divvy_schema_ddl = "trip_id INT, starttime STRING, stoptime STRING, bikeid INT, tripduration INT, from_station_id INT, from_station_name STRING, to_station_id INT, to_station_name STRING, usertype STRING, gender STRING, birthyear INT"
+    // Reading datafile using DDL and printing the count
+    println("Scala DDL printSchema for Divvy Trips")
+    val ddl_divvy_schema = "trip_id INT, starttime STRING, stoptime STRING, bikeid INT, tripduration INT, from_station_id INT, from_station_name STRING, to_station_id INT, to_station_name STRING, usertype STRING, gender STRING, birthyear INT"
 
-    // Read the csv file with schema defined in DDL
-    val df_divvy_ddl = spark.read.format("csv")
-        .option("header", "true")
-        .schema(divvy_schema_ddl)
-        .load(divvy_data)
-    df_divvy_ddl.printSchema()
+    val ddl_trips_df = spark.read.format("csv")
+      .option("header", "true")
+      .schema(ddl_divvy_schema)
+      .load(divvy_data_file)
 
-    // Print the total Records
-    println(s"Total Row Count: ${df_divvy_ddl.count()}")
+    ddl_trips_df.printSchema()
+    println(s"Total number of Divvy trips: ${ddl_trips_df.count()}")
 
-    // Filter records based on Gender
-    val df_gender_female = df_divvy_ddl.select("*")
-        .where(col("gender") === "Female")
-        .groupBy("to_station_name")
-        .count()
-    
-    // Show 10 records from the grouped results
-    println(s"Records after grouping:")
-    df_gender_female.show(10, truncate = false)
+    // Displaying 10 results for female grouping by to_station_name
+    val fem_trips_df = infer_trips_df.select("to_station_name","gender")
+      .where(col("gender") === "Female")
+      .groupBy("to_station_name")
+      .count()
 
-    //Stop Spark session
+    println("Scala: Displaying 10 results for female grouping by to_station_name")
+    fem_trips_df.show(10, false)
+
+    // Stop SparkSession
     spark.stop()
-    }
+  }
 }
