@@ -1,47 +1,65 @@
-# In python lab02
+from os import truncate
+import sys
+from pyspark.sql.functions import col
+
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import *
+from pyspark.sql.functions import when
 from pyspark.sql.types import *
-spark = ( SparkSession
-    .builder
-    .appName("Lab2")
-    .getOrCreate())
-df = spark.read.csv("./data/Divvy_Trips_2015-Q1.csv", header=True)
-df.printSchema()
-print("\nNumber of Rows:", df.count())
 
-schema = StructType([
-    StructField("trip_id",StringType(),True),
-    StructField("starttime",StringType(),True),
-    StructField("stoptime",StringType(),True),
-    StructField("bikeid",StringType(),True),
-    StructField("tripduration",StringType(),True),
-    StructField("from_station_id",StringType(),True),
-    StructField("from_station_name",StringType(),True),
-    StructField("to_station_id",StringType(),True),
-    StructField("to_station_name",StringType(),True),
-    StructField("usertype",StringType(),True),
-    StructField("gender",StringType(),True),
-    StructField("birthyear",StringType(),True),
-])
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        print("Usage: DivvyTrips <file>", file=sys.stderr)
+        sys.exit(-1)
 
-df_with_schema = spark.createDataFrame(df.rdd,schema)
+    # Create SparkSession
+    spark = SparkSession.builder.appName("Assignment 1").getOrCreate()
+    data_source = sys.argv[1]
 
-df_with_schema.show()
-print("\nNumber of Rows:", df_with_schema.count())
+    # Inferring Schema
+    infer_divvy_df = spark.read.format("csv").option("header", "true").option("inferSchema", "true").load(data_source)
+    filtered_df = infer_divvy_df.where(col("gender") == "Male")
+    grouped_df = filtered_df.groupBy("to_station_name").count()
+    grouped_df.show(10)
+    print("Number of records: ", infer_divvy_df.count())
+    print("Schema Inferred Data Frame:")
+    # Print the schema
+    infer_divvy_df.printSchema()
 
 
+    # Programmatically creating and attaching a schema using StructFields
+    struct_schema = StructType([
+        StructField("trip_id", IntegerType()),
+        StructField("starttime", StringType()),
+        StructField("stoptime", StringType()),
+        StructField("bikeid", IntegerType()),
+        StructField("tripduration", IntegerType()),
+        StructField("from_station_id", IntegerType()),
+        StructField("from_station_name", StringType()),
+        StructField("to_station_id", IntegerType()),
+        StructField("to_station_name", StringType()),
+        StructField("usertype", StringType()),
+        StructField("gender", StringType()),
+        StructField("birthyear", IntegerType())
+    ])
+    #Programmatically
+    struct_divvy_df = spark.read.schema(struct_schema).format("csv").option("header", "true").load(data_source)
+    female_df = struct_divvy_df.where(col("gender") == "Male")
+    fegrouped_df = female_df.groupBy("to_station_name").count()
+    fegrouped_df.show(10)
+    print("Number of records:", struct_divvy_df.count())
+    print("Programmatically Defined Schema:")
+    struct_divvy_df.printSchema()
+    
 
+    #ddl
+    ddl_schema = "trip_id INT, starttime STRING, stoptime STRING, bikeid INT, tripduration INT, from_station_id INT, from_station_name STRING, to_station_id INT, to_station_name STRING, usertype STRING, gender STRING, birthyear INT"
+    ddl_df = spark.read.schema(ddl_schema).format("csv").option("header", "true").load(data_source)
+    ddfemale_df = ddl_df.where(col("gender") == "Male")
+    ddlgrouped_df = ddfemale_df.groupBy("to_station_name").count()
+    ddlgrouped_df.show(10)
+    print("Number of records:", ddl_df.count())
+    print("\nSchema via DDL:")
+    ddl_df.printSchema()
 
-schema_ddl = "trip_id STRING, starttime STRING, stoptime STRING,bikeid STRING , tripduration  STRING ,from_station_id STRING,  \
-    from_station_name STRING,to_station_id STRING,to_station_name STRING,usertype STRING,gender STRING, birthyear STRING"
-
-df_ddl = spark.read.csv("./data/Divvy_Trips_2015-Q1.csv", header=True, schema=schema_ddl)
-df_ddl.show()
-print("\nNumber of Rows:", df_ddl.count())
-
-format_df=df_ddl.select("*").where(df_ddl["gender"] == "Male").groupBy("to_station_name").agg(count("to_station_name"))
-format_df.show(10)
-
-
-spark.stop()
+    # Stoping SparkSession
+    spark.stop()
