@@ -5,72 +5,69 @@ import org.apache.spark.sql.functions._
 
 object assignment_01 {
   def main(args: Array[String]) {
-    // Initializing SparkSession
+    // Initializing a SparkSession
     val spark = SparkSession.builder
-      .appName("Unique Divvy Trips Analysis")
+      .appName("Divvy Trips Analysis")
       .getOrCreate()
-
-    if (args.length < 1){
-      println("usage: UniqueDivvyTripsData <file>")
-      sys.exit(-1)
-
+      if (args.length < 1){
+        println("Usage: Divvy analysis <file>")
+        sys.exit(-1)
     }
-    // Reading CSV data with inferred schema
 
-    val divvydata = args(0)
-    println(s" Inferred Schema :")
-    val dfInferredSchema = spark.read.format("csv")
+    // Reading CSV data with inferred schema
+    val divvy_datafile = args(0)
+    println(s"schema Inferring:")
+    val divvy_inferred_df= spark.read.format("csv")
         .option("header", "true")
         .option("inferSchema", "true")
-        .load(divvydata)
-    dfInferredSchema.printSchema()
-    println(s"Number of records : ${dfInferredSchema.count()}")
+        .load(divvy_datafile)
+    divvy_inferred_df.printSchema()
+
+    // Print Records
+    println(s"Total Row: ${divvy_inferred_df.count()}")
 
     // Creating schema programmatically and reading CSV
-    val programmaticSchema = StructType(Array(
-      StructField("trip_id", IntegerType,  true),
-      StructField("starttime", StringType,  true),
-      StructField("stoptime", StringType,  true),
-      StructField("bikeid", IntegerType,  true),
-      StructField("tripduration", IntegerType,  true),
-      StructField("from_station_id", IntegerType,  true),
-      StructField("from_station_name", StringType,  true),
-      StructField("to_station_id", IntegerType,  true),
-      StructField("to_station_name", StringType,  true),
-      StructField("usertype", StringType,  true),
-      StructField("gender", StringType,  true),
-      StructField("birthyear", StringType,  true)
+    val prg_schema = StructType(Array(
+      StructField("trip_id", IntegerType, true),
+      StructField("starttime", StringType, true),
+      StructField("stoptime", StringType, true),
+      StructField("bikeid", IntegerType, true),
+      StructField("tripduration", IntegerType, true),
+      StructField("from_station_id", IntegerType, true),
+      StructField("from_station_name", StringType, true),
+      StructField("to_station_id", IntegerType, true),
+      StructField("to_station_name", StringType, true),
+      StructField("usertype", StringType, true),
+      StructField("gender", StringType, true),
+      StructField("birthyear", StringType, true),
     ))
-
-
-    val dfProgrammaticSchema = spark.read.format("csv")
+   
+    val df_programmatic_schema= spark.read.format("csv")
         .option("header", "true")
-        .schema(programmaticSchema)
-        .load(divvydata)
-    dfProgrammaticSchema.printSchema()
-    println(s"Number of records : ${dfProgrammaticSchema.count()}")
+        .schema(prg_schema)
+        .load(divvy_datafile)
+    df_programmatic_schema.printSchema()
 
+    // Print the total Records
+    println(s"Total Row Count: ${df_programmatic_schema.count()}")
 
     // Attaching schema via DDL and reading CSV
-
-    val ddlSchema = "trip_id INT, starttime STRING, stoptime STRING, bikeid INT, tripduration INT, from_station_id INT, from_station_name STRING, to_station_id INT, to_station_name STRING, usertype STRING, gender STRING, birthyear STRING"
-
-    val dfDDLSchema = spark.read.format("csv")
+    val ddl_schema = "trip_id INT, starttime STRING, stoptime STRING, bikeid INT, tripduration INT, from_station_id INT, from_station_name STRING, to_station_id INT, to_station_name STRING, usertype STRING, gender STRING, birthyear STRING"
+     val df_ddl_schema= spark.read.format("csv")
         .option("header", "true")
-        .schema(ddlSchema)
-        .load(divvydata)
-    dfDDLSchema.printSchema()
-    println(s"Number of records : ${dfDDLSchema.count()}")
+        .schema(ddl_schema)
+        .load(divvy_datafile)
+    df_ddl_schema.printSchema()
 
-
+    // Print the total Records
+    println(s"Total Row Count: ${df_ddl_schema.count()}")
 
     // Selecting Gender and filtering
-    val dfgender = dfDDLSchema.select("*")
-        .where(col("gender") === "Male")
+    val df_gender = df_ddl_schema.select("*")
+        .where(col("gender") === "Female")
         .groupBy("to_station_name")
         .count()
-
-    dfgender.show(10,truncate = false)
+    df_gender.show(10,truncate=false)
 
     // Stopping SparkSession
     spark.stop()
