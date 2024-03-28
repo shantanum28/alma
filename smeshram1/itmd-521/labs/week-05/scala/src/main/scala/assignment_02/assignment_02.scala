@@ -1,89 +1,120 @@
 package main.scala.assignment_02
-import org.apache.spark.sql.types.{StructType, StructField, StringType, IntegerType, LongType, DoubleType}
-import org.apache.spark.sql.{SparkSession, Dataset, Encoder}
-import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
+
+import org.apache.spark.sql.{SparkSession, Dataset}
 import org.apache.spark.sql.functions._
+import org.apache.spark.sql.types._
 
-case class IOT_devices_schema (battery_level: Long, c02_level: Long, 
-    cca2: String, cca3: String, cn: String, device_id: Long, 
-    device_name: String, humidity: Long, ip: String, latitude: Double,
-    lcd: String, longitude: Double, scale:String, temp: Long, timestamp: Long)
 
-object IOT_devices_schema {
-  implicit def encoder: Encoder[IOT_devices_schema] =
-    ExpressionEncoder[IOT_devices_schema]
-}
-
+// Define DeviceIoTData case class
+case class DeviceIoTData(
+  battery_level: Long,
+  c02_level: Long,
+  cca2: String,
+  cca3: String,
+  cn: String,
+  device_id: Long,
+  device_name: String,
+  humidity: Long,
+  ip: String,
+  latitude: Double,
+  lcd: String,
+  longitude: Double,
+  scale: String,
+  temp: Long,
+  timestamp: Long
+)
 object assignment_02 {
-    def main(args: Array[String]) {
-    val spark = SparkSession
-        .builder
-        .appName("assignment_02")
-        .getOrCreate()
-    
-    if (args.length < 1) {
-        print("Usage: assignment_02 <iot_devices_dataset>")
-        sys.exit(1)
-    }
+def main(args: Array[String]) {
+  val spark = SparkSession
+    .builder()
+    .appName("DeviceDataFilter")
+    .getOrCreate()
 
-    import spark.implicits._
+if (args.length < 1) {
+     print("Usage: IOT device <file>")
+     sys.exit(1)
+   }
+// Get the  file path from command-line argument
+val IoTDeviceFile = args(0)
+import spark.implicits._
+// Data file path
+val IoTfilename = "file:///home/vagrant/LearningSparkV2/databricks-datasets/learning-spark-v2/iot-devices/iot_devices.json"
+// Read JSON file into DataFrame
+val ds = spark.read
+.json(IoTfilename)
+.as[DeviceIoTData]
 
-    val iot_dev_file = args(0)
-    val iot_devices_ds: Dataset[IOT_devices_schema] = spark.read.json(iot_dev_file).as[IOT_devices_schema]
+// Q1.Detect failing devices with battery levels below a threshold.
+val batteryThreshold = 1
+val failingDevices = ds.filter(_.battery_level < batteryThreshold)
+// Count the failing devices
+val failingDevicesCount = failingDevices.count()
+println(s"Output Q1- Number of devices with battery levels below $batteryThreshold: $failingDevicesCount")
+println(s"Details of devices with battery levels below $batteryThreshold:")
+failingDevices.show(10,false)
 
-    // Question 1: Detect failing devices with battery levels below a threshold.
-    val threshold_bat_lev = 8
-    val failing_devices_ds = iot_devices_ds.filter($"battery_level" < threshold_bat_lev)
-    println(s"Failing devices with battery level less than 8:  ${failing_devices_ds.count()}")
-    failing_devices_ds.select($"battery_level", $"c02_level", $"device_name").sort($"c02_level").show(5, false)
+// Output for Question1
+// Detecting failing devices with battery levels below a threshold 1: 19851
 
-    // OUTPUT :- Observation - The table displays observations from various devices along with the battery life, CO2 concentration, and individual device names for each. With information about each device's operational data, each row represents a unique device. As an example, the device named "device-mac-111327FkK365" in the first row has a CO2 level of 800 and a battery level of 4. In the same way, the rows that follow list other devices' specifics and condense their unique features.
+// Q2.Identify offending countries with high levels of CO2 emissions
+val co2Threshold = 1400 
+val offendingCountries = ds.groupBy($"cn")
+  .agg(avg($"c02_level").alias("avg_co2_level"))
+  .filter($"avg_co2_level" > co2Threshold)
+  .select($"cn", $"avg_co2_level")
+println(s"Output Q2- Countries with average CO2 levels above $co2Threshold:")
+offendingCountries.show(false)
 
-    // Question 2: Identify offending countries with high levels of CO2 emissions.
-    val threshold_co2: Long = 1400
-    val high_co2_ds = iot_devices_ds.filter($"c02_level" > threshold_co2)
-    val high_co2_country_ds = high_co2_ds.select($"c02_level",$"cn")
-                                .groupBy($"cn")
-                                .agg(avg($"c02_level")
-                                .alias("avg_c02"))
-                                .sort($"avg_c02".desc)
-    // val high_co2_country_ds = high_co2_df.select($"c02_level",$"cn").groupBy("cn").avg()
+// Output for Question2
+// Countries with average CO2 levels above the threshold of 1400. It displays the country names along with their corresponding average CO2 levels.
+// Countries: Monaco, Gabon, Falkland Islands
+//Average CO2 Levels: 1421.5, 1523.0, 1424.0
 
-    // Show top 5 offending countries with high CO2 emissions
-    high_co2_country_ds.show(5, false)
 
-    // OUTPUT:Observation :- Here i have shown 5 rows and The CO2 averages for different countries are shown in the table. Every row represents a separate nation, displaying that nation's name (shortened to "cn") together with the commensurate average CO2 concentration. The first row, for example, shows the average CO2 level of 1593.5 for Saint Vincent and the Grenadines, whereas the second row shows the average CO2 level of 1588.0 for the Solomon Islands. Comparably, the average CO2 levels of the Federated States of Micronesia, Rwanda, and the British Indian Ocean Territory are provided, offering insights on environmental measurements around the globe.
-    
+// Q3. Compute the min and max values for temperature, battery level, CO2, and humidity
+val minMaxValues = ds.agg(
+  min($"temp").alias("min_temperature"),
+  max($"temp").alias("max_temperature"),
+  min($"battery_level").alias("min_battery_level"),
+  max($"battery_level").alias("max_battery_level"),
+  min($"c02_level").alias("min_co2_level"),
+  max($"c02_level").alias("max_co2_level"),
+  min($"humidity").alias("min_humidity"),
+  max($"humidity").alias("max_humidity")
+)
+println("Output Q3- Min and max values for temperature, battery level, CO2, and humidity:")
+minMaxValues.show(false)
 
-    // Question 3: Compute the min and max values for temperature, battery level, CO2, and humidity.
-    val iot_minMax_ds = iot_devices_ds.agg(
-      min($"temp").alias("min_temperature"),
-      max($"temp").alias("max_temperature"),
-      min($"battery_level").alias("min_battery_level"),
-      max($"battery_level").alias("max_battery_level"),
-      min($"c02_level").alias("min_c02_level"),
-      max($"c02_level").alias("max_c02_level"),
-      min($"humidity").alias("min_humidity"),
-      max($"humidity").alias("max_humidity")
-    )
+// Output for Question4
+// The minimum and maximum values for temperature, battery level, CO2 level, and humidity across all devices in the dataset.
+// Min Temperature: 10°C
+// Max Temperature: 34°C
+// Min Battery Level: 0
+// Max Battery Level: 9
+// Min CO2 Level: 800
+// Max CO2 Level: 1599
+// Min Humidity: 25
+// Max Humidity: 99
 
-    iot_minMax_ds.show(5, false)
 
-    // OUTPUT: Observation :- The lowest and greatest values for a number of environmental parameters are shown in the table. It contains humidity, CO2 levels, battery levels, and minimum and maximum temperatures. For instance, the lowest recorded temperature is 10°C, while the highest is 34°C. There is a range of battery levels (0 to 9) and CO2 levels (800 to 1599 parts per million) available. Furthermore, there is a range in humidity from 25% to 99%. These measures shed light on the variety of environmental circumstances that the dataset records.
-    
-    // Question 4: Sort and group by average temperature, CO2, humidity, and country
-    val iot_avgValues_ds = iot_devices_ds.groupBy($"cca2", $"cn")
-      .agg(
-        avg($"temp").alias("avg_temperature"),
-        avg($"c02_level").alias("avg_c02_level"),
-        avg($"humidity").alias("avg_humidity")
-      )
-      .orderBy(desc("avg_temperature"), desc("avg_c02_level"), desc("avg_humidity"))
+// Q4. Sort and group by average temperature, CO2, humidity, and country
+val sortedGroupedData =(ds.where(col("cn")=!= "")
+  .groupBy($"cn") 
+  .agg(avg($"temp").alias("avg_temperature"),
+    avg($"c02_level").alias("avg_co2_level"),
+    avg($"humidity").alias("avg_humidity"))
+  .orderBy($"cn", $"avg_temperature", $"avg_co2_level", $"avg_humidity"))
+println("Output Q4- Sorted and grouped data by average temperature, CO2, humidity, and country:")
+sortedGroupedData.show(10,false)
 
-    // Show sorted and grouped DataFrame
-    iot_avgValues_ds.show(5, false)
+// Output for Question5
+// The top countries sorted by their average temperature, CO2 level, and humidity. 
+// Countries: Afghanistan, Albania, Algeria, American Samoa, Andorra, Angola, Anguilla, Antigua and Barbuda, Argentina, Armenia
+// Average Temperature: Ranges from 20.0°C to 31.14°C
+// Average CO2 Level: Ranges from 1037.67 ppm to 1279.0 ppm (parts per million)
+// Average Humidity: Ranges from 50.71% to 75.0%
 
-    // OUTPUT: Observation :- Here i have shown top 5 rows . The table displays averaged information for several nations, such as average temperature, average CO2 concentration, average humidity, and country codes (cca2) and names (cn). Every row showcases a different country with its own set of measurements. Anguilla (AI), for instance, has an average temperature of roughly 31.14°C, an average CO2 level of roughly 1165.14 ppm, and an average humidity of roughly 50.71%, according to the top row. In a similar manner, the average environmental measurements for Greenland (GL), Gabon (GA), Vanuatu (VU), and Saint Lucia (LC) are listed, providing information on the climate in various areas.
-    
-    spark.stop()
-    }}
+// Stop SparkSession
+spark.stop()
+  }
+}
