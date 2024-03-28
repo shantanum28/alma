@@ -1,214 +1,632 @@
-from os import truncate
 import sys
-
-from pyspark.sql.functions import col
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import when
 from pyspark.sql.types import *
-from pyspark.sql.functions import col, count, desc, month, to_date, year, avg, weekofyear, to_timestamp
-from pyspark.sql.types import StructType, StructField, StringType, IntegerType, BooleanType, DoubleType
+from pyspark.sql.functions import *
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: DivvyTrips <file>", file=sys.stderr)
-        sys.exit(-1)
+    if len(sys.argv) <= 0:
+        sys.exit(1)
 
-    # Create SparkSession
-    spark = SparkSession.builder.appName("Assignment 2").getOrCreate()
-    data_source = sys.argv[1]
+    spark = (SparkSession.builder.appName("ss-fire-calls").getOrCreate())
+    #source file
+    ss_fire_calls_file = sys.argv[1]
 
+    #Define Schema Programmatically
+    ss_fire_calls_schema = StructType([StructField('CallNumber', IntegerType(), True),
+                     StructField('UnitID', StringType(), True),
+                     StructField('IncidentNumber', IntegerType(), True),
+                     StructField('CallType', StringType(), True),                  
+                     StructField('CallDate', StringType(), True),      
+                     StructField('WatchDate', StringType(), True),
+                     StructField('CallFinalDisposition', StringType(), True),
+                     StructField('AvailableDtTm', StringType(), True),
+                     StructField('Address', StringType(), True),       
+                     StructField('City', StringType(), True),       
+                     StructField('Zipcode', IntegerType(), True),       
+                     StructField('Battalion', StringType(), True),                 
+                     StructField('StationArea', StringType(), True),       
+                     StructField('Box', StringType(), True),       
+                     StructField('OriginalPriority', StringType(), True),       
+                     StructField('Priority', StringType(), True),       
+                     StructField('FinalPriority', IntegerType(), True),       
+                     StructField('ALSUnit', BooleanType(), True),       
+                     StructField('CallTypeGroup', StringType(), True),
+                     StructField('NumAlarms', IntegerType(), True),
+                     StructField('UnitType', StringType(), True),
+                     StructField('UnitSequenceInCallDispatch', IntegerType(), True),
+                     StructField('FirePreventionDistrict', StringType(), True),
+                     StructField('SupervisorDistrict', StringType(), True),
+                     StructField('Neighborhood', StringType(), True),
+                     StructField('Location', StringType(), True),
+                     StructField('RowID', StringType(), True),
+                     StructField('Delay', FloatType(), True)])
 
-    schema = StructType([
-    StructField("CallNumber", IntegerType(), True),
-    StructField("UnitID", StringType(), True),
-    StructField("IncidentNumber", IntegerType(), True),
-    StructField("CallType", StringType(), True),
-    StructField("CallDate", StringType(), True),
-    StructField("WatchDate", StringType(), True),
-    StructField("CallFinalDisposition", StringType(), True),
-    StructField("AvailableDtTm", StringType(), True),
-    StructField("Address", StringType(), True),
-    StructField("City", StringType(), True),
-    StructField("Zipcode", IntegerType(), True),
-    StructField("Battalion", StringType(), True),
-    StructField("StationArea", IntegerType(), True),
-    StructField("Box", IntegerType(), True),
-    StructField("OriginalPriority", IntegerType(), True),
-    StructField("Priority", IntegerType(), True),
-    StructField("FinalPriority", IntegerType(), True),
-    StructField("ALSUnit", BooleanType(), True),
-    StructField("CallTypeGroup", StringType(), True),
-    StructField("NumAlarms", IntegerType(), True),
-    StructField("UnitType", StringType(), True),
-    StructField("UnitSequenceInCallDispatch", IntegerType(), True),
-    StructField("FirePreventionDistrict", IntegerType(), True),
-    StructField("SupervisorDistrict", IntegerType(), True),
-    StructField("Neighborhood", StringType(), True),
-    StructField("Location", StringType(), True),
-    StructField("RowID", StringType(), True),
-    StructField("Delay", DoubleType(), True)
-])
+    ss_fire_calls_df = spark.read.csv(ss_fire_calls_file, header=True, schema=ss_fire_calls_schema)
+
+    ss_fire_calls_df.cache()
+    ss_fire_calls_df.printSchema()
+
+    fire_calls_df = ss_fire_calls_df.withColumn("CallDate", to_timestamp(col("CallDate"), "MM/dd/yyyy"))
+
+    #1. What were all the different types of fire calls in 2018?
+    print("The primary query is printing")
+    query1 = (fire_calls_df.select("CallType").where(year("CallDate")==2018)).limit(12)
+    query1.show()
+    """ Result for  the 1st query: 
+        +-----------------+
+    |         CallType|
+    +-----------------+
+    |   Structure Fire|
+    |           HazMat|
+    |           Alarms|
+    | Medical Incident|
+    | Medical Incident|
+    |Electrical Hazard|
+    | Medical Incident|
+    | Medical Incident|
+    | Medical Incident|
+    | Medical Incident|
+    | Medical Incident|
+    | Medical Incident|
+    +-----------------+
+    only showing top 12 rows"""
+
+    #2. What months within the year 2018 saw the highest number of fire calls?
+    print("The second query is printing")
+    query2 = fire_calls_df.filter(year("CallDate") == 2018).groupBy(month("CallDate").alias("CallMonth")).agg(count("CallNumber").alias("Count_CallNumber")).orderBy("Count_CallNumber",ascending=False)
+    query2.show()
+    """ Result for  the 2nd query:
+    +---------+----------------+
+    |CallMonth|Count_CallNumber|
+    +---------+----------------+
+    |       10|            1068|
+    |        5|            1047|
+    |        3|            1029|
+    |        8|            1021|
+    |        1|            1007|
+    |        6|             974|
+    |        7|             974|
+    |        9|             951|
+    |        4|             947|
+    |        2|             919|
+    |       11|             199|
+    +---------+----------------+
     
-    fire_df = spark.read.format("csv").option("header", "true").option("inferSchema", "true").load(data_source)
+    """
+    #3. Which neighborhood in San Francisco generated the most fire calls in 2018?
+    print("The third query is printing")
+    query3 = fire_calls_df.filter((year("CallDate") == 2018)&(col("Neighborhood").isNotNull())).groupBy("Neighborhood").agg(count("Neighborhood").alias("Count_Neighborhood_SS_Fire_Calls")).orderBy("Count_Neighborhood_SS_Fire_Calls",ascending=False)
+    query3.show()
+    """ Result for the 3rd query:
+    +--------------------+--------------------------------+
+    |        Neighborhood|Count_Neighborhood_SS_Fire_Calls|
+    +--------------------+--------------------------------+
+    |          Tenderloin|                            1393|
+    |     South of Market|                            1053|
+    |             Mission|                             913|
+    |Financial Distric...|                             772|
+    |Bayview Hunters P...|                             522|
+    |    Western Addition|                             352|
+    |     Sunset/Parkside|                             346|
+    |            Nob Hill|                             295|
+    |        Hayes Valley|                             291|
+    |      Outer Richmond|                             262|
+    | Castro/Upper Market|                             251|
+    |         North Beach|                             231|
+    |           Excelsior|                             212|
+    |  West of Twin Peaks|                             210|
+    |        Potrero Hill|                             210|
+    |           Chinatown|                             191|
+    |     Pacific Heights|                             191|
+    |              Marina|                             191|
+    |         Mission Bay|                             178|
+    |      Bernal Heights|                             170|
+    +--------------------+--------------------------------+
+    only showing top 20 rows
 
-#Question-1 - What were all the different types of fire calls in 2018?
-    fire_df = fire_df.withColumn("CallDate", to_date(col("CallDate"), "MM/dd/yyyy"))
-    calls_2018 = fire_df.filter(year(col("CallDate")) == 2018)
-    distinct_call_types_2018 = calls_2018.select("CallType").distinct()
-    distinct_call_types_2018.show(truncate=False)
-#Output
-    '''
-+-------------------------------+
-|CallType                       |
-+-------------------------------+
-|Elevator / Escalator Rescue    |
-|Alarms                         |
-|Odor (Strange / Unknown)       |
-|Citizen Assist / Service Call  |
-|HazMat                         |
-|Vehicle Fire                   |
-|Other                          |
-|Outside Fire                   |
-|Traffic Collision              |
-|Assist Police                  |
-|Gas Leak (Natural and LP Gases)|
-|Water Rescue                   |
-|Electrical Hazard              |
-|Structure Fire                 |
-|Medical Incident               |
-|Fuel Spill                     |
-|Smoke Investigation (Outside)  |
-|Train / Rail Incident          |
-|Explosion                      |
-|Suspicious Package             |
-+-------------------------------+
-    '''
-#Question-2 - What months within the year 2018 saw the highest number of fire calls?
+    """
+    #3.1 Generated most fire calls
+    query3.limit(1).show()
+    """ Result:
+    +------------+--------------------------------+
+    |Neighborhood|Count_Neighborhood_SS_Fire_Calls|
+    +------------+--------------------------------+
+    |  Tenderloin|                            1393|
+    +------------+--------------------------------+
+    """
 
-    fire_2018 = fire_df.filter(col("CallDate").like("%2018%") & col("CallDate").isNotNull())
-    fire_2018 = fire_2018.withColumn("CallDate", to_timestamp(col("CallDate"), "MM/dd/yyyy"))
-    fire_2018 = fire_2018.withColumn("Month", month("CallDate"))
-    df_q2 = fire_2018.groupBy("Month").count().orderBy(desc("count"))
+    #4. Which neighborhoods had the worst response times to fire calls in 2018?
+    print("The fourth query is printing")
+    query4 = fire_calls_df.filter((year("CallDate") == 2018)&(col("Neighborhood").isNotNull())).groupBy("Neighborhood").agg(avg(col("Delay")).alias("Average_delay")).orderBy("Average_delay", ascending=True)
+    query4.show()
+    """ Result for the  4th query:
+    +-------------------+------------------+
+    |       Neighborhood|     Average_delay|
+    +-------------------+------------------+
+    |  Lone Mountain/USF|3.2472222397724786|
+    |          Glen Park| 3.277777776122093|
+    |   Western Addition|3.2843276457861066|
+    |       Lincoln Park|3.3111111190583973|
+    |            Portola|3.3385542175137854|
+    |          Japantown| 3.347695054526025|
+    |               None| 3.363333320617676|
+    |       Hayes Valley|3.3703894590082037|
+    |             Marina|3.4267888378098372|
+    |            Mission|3.4505293849459875|
+    |  Visitacion Valley|3.4838095208009086|
+    |         Noe Valley| 3.525949378556843|
+    |    Sunset/Parkside|3.5842003932147355|
+    |      Outer Mission|   3.6317518444827|
+    |     Outer Richmond|3.6480915955346047|
+    |         Twin Peaks|3.7292349641440343|
+    |       Russian Hill| 3.786621309056574|
+    |           Nob Hill| 3.799999982320656|
+    |Castro/Upper Market|3.8012616103032673|
+    |    South of Market| 3.817584685514286|
+    +-------------------+------------------+
+only showing top 20 rows
+    """
+    #4.1 worst response times to fire calls in 2018
+    query4.limit(1).show()
+    """ Result:
+    +-----------------+------------------+
+    |     Neighborhood|     Average_delay|
+    +-----------------+------------------+
+    |Lone Mountain/USF|3.2472222397724786|
+    +-----------------+------------------+
+    """
 
-    df_q2.show(12,truncate = False)
-#Output
-'''
- +-----+-----+
-|Month|count|
-+-----+-----+
-|10   |1068 |
-|5    |1047 |
-|3    |1029 |
-|8    |1021 |
-|1    |1007 |
-|6    |974  |
-|7    |974  |
-|9    |951  |
-|4    |947  |
-|2    |919  |
-|11   |199  |
-+-----+-----+
+    #5. Which week in the year in 2018 had the most fire calls?
+    print("The fifth query is printing")
+    query5 = fire_calls_df.filter(year("CallDate") == 2018).groupBy(weekofyear("CallDate").alias("WeekOfTheYear")).agg(count("CallNumber").alias("Count_CallNumber")).orderBy("Count_CallNumber",ascending=False)
+    query5.show()
+    """ Result for 5th query:
+    +-------------+----------------+
+    |WeekOfTheYear|Count_CallNumber|
+    +-------------+----------------+
+    |           22|             259|
+    |           40|             255|
+    |           43|             250|
+    |           25|             249|
+    |            1|             246|
+    |           44|             244|
+    |           13|             243|
+    |           32|             243|
+    |           11|             240|
+    |            5|             236|
+    |           18|             236|
+    |           23|             235|
+    |           31|             234|
+    |           42|             234|
+    |            2|             234|
+    |           19|             233|
+    |            8|             232|
+    |           10|             232|
+    |           34|             232|
+    |           28|             231|
+    +-------------+----------------+
+only showing top 20 rows """
 
-    '''
-   
-#Question-3 - Which neighborhood in San Francisco generated the most fire calls in 2018?
-nhood_calls = fire_2018.groupBy("Neighborhood").agg(count("*").alias("TotalCalls")).orderBy(desc("TotalCalls"))
-nhood_calls.show(3)
-#Output
-'''
-+---------------+----------+
-|   Neighborhood|TotalCalls|
-+---------------+----------+
-|     Tenderloin|      1393|
-|South of Market|      1053|
-|        Mission|       913|
-+---------------+----------+
-''' 
-#Question-4 - Which neighborhoods had the worst response times to fire calls in 2018?
-fire_call_2018 = fire_df.filter((col("CallDate").like("%2018%"))& (col("CallDate").isNotNull()))
-    
-nhood_response = fire_call_2018.groupBy("Neighborhood").agg(avg("Delay").alias("AverageDelay"))
-    
-worst_response = nhood_response.orderBy(desc("AverageDelay"))
-print("Worst Response Times to Fire Calls in 2018:")
-worst_response.show()
-#Output
-'''
-+--------------------+------------------+
-|        Neighborhood|      AverageDelay|
-+--------------------+------------------+
-|           Chinatown|6.1903140979057625|
-|            Presidio| 5.829227041449275|
-|     Treasure Island| 5.453703712499999|
-|        McLaren Park| 4.744047642857142|
-|Bayview Hunters P...|4.6205619568773955|
-|    Presidio Heights| 4.594131472394366|
-|        Inner Sunset| 4.438095199935065|
-|      Inner Richmond| 4.364728682713178|
-|Financial Distric...| 4.344084618290155|
-|      Haight Ashbury| 4.266428599285713|
-|            Seacliff| 4.261111146666667|
-|  West of Twin Peaks| 4.190952390857144|
-|        Potrero Hill|  4.19055555742857|
-|     Pacific Heights| 4.180453718900521|
-|          Tenderloin|  4.10151951659727|
-|Oceanview/Merced/...| 3.947242180719425|
-|           Excelsior|3.9363993797169807|
-|         North Beach|3.8892496403463204|
-|           Lakeshore| 3.881551365094342|
-|         Mission Bay|3.8548689521910124|
-+--------------------+------------------+
-'''
-#Question-5 -Which week in the year in 2018 had the most fire calls?
-fire_cal = fire_df.filter((col("CallDate").like("%2018%")) & (col("CallDate").isNotNull()))
-fire_cal = fire_cal.withColumn("CallDate", to_date("CallDate"))
-    
-weekly_call_counts_2018 = fire_cal.groupBy(weekofyear('CallDate').alias('Week')).count().orderBy('count', ascending=False)
-    
-print("Week in the year 2018 with the most fire calls:")
-weekly_call_counts_2018.show(1)
-#Output
-'''
-+----+-----+
-|Week|count|
-+----+-----+
-|  22|  259|
-+----+-----+
-'''
-#Question-6 - Is there a correlation between neighborhood, zip code, and number of fire calls?
-neighborhood_zipcode_counts = fire_df.groupBy("Neighborhood", "Zipcode").agg(count("*").alias("FireCallCount"))
-neighborhood_zipcode_counts.show()
-#Output
-'''
-+--------------------+-------+-------------+
-|        Neighborhood|Zipcode|FireCallCount|
-+--------------------+-------+-------------+
-|        Inner Sunset|  94122|         2161|
-|Bayview Hunters P...|  94124|         9150|
-|        Inner Sunset|  94114|           20|
-|  West of Twin Peaks|  94112|          760|
-|      Haight Ashbury|  94114|           21|
-|           Glen Park|  94110|           25|
-|           Excelsior|  94112|         3237|
-|        Russian Hill|  94109|         2261|
-|                None|  94124|            7|
-|           Chinatown|  94133|         1861|
-|     Pacific Heights|  94115|         2100|
-|Oceanview/Merced/...|  94127|           12|
-|        Potrero Hill|  94103|            5|
-|        Inner Sunset|  94117|          224|
-|    Golden Gate Park|  94117|          107|
-|                None|   NULL|          141|
-|          Noe Valley|  94131|          763|
-|    Western Addition|  94117|          315|
-|            Presidio|  94118|            2|
-|        McLaren Park|  94112|           36|
-+--------------------+-------+-------------+
-'''
-#Question-7
-fire_calls_2018.write.mode('overwrite').parquet("fire_call_types_2018.parquet")
-parquet_data = spark.read.parquet("fire_call_types_2018.parquet")
-parquet_data.show(5)
-#Output
+    #5.1 week in the year in 2018 had the most fire calls
+    query5.limit(1).show()
+    """ Result:
+        +-------------+----------------+
+    |WeekOfTheYear|Count_CallNumber|
+    +-------------+----------------+
+    |           22|             259|
+    +-------------+----------------+
+    """
 
-spark.stop()
+    #6. Is there a correlation between neighborhood, zip code, and number of fire calls?
+    print(" the sixth query is printing")
+    query6 = fire_calls_df.filter(col("Neighborhood").isNotNull()).groupBy("Neighborhood", "Zipcode").count().withColumnRenamed("count", "NumberOfCalls").orderBy("NumberOfCalls").limit(9)
+    query6.show()
+    """
+    +-------------------+-------+-------------+
+    |       Neighborhood|Zipcode|NumberOfCalls|
+    +-------------------+-------+-------------+
+    |    South of Market|  94105|            1|
+    |          Excelsior|   NULL|            1|
+    |           Presidio|  94118|            2|
+    |           Presidio|  94115|            2|
+    |Castro/Upper Market|  94131|            2|
+    |         Twin Peaks|  94127|            3|
+    |   Presidio Heights|  94129|            3|
+    |       Potrero Hill|  94103|            5|
+    |               None|  94124|            7|
+    +-------------------+-------+-------------+
+    only showing top 9 rows
+
+    """
+
+    #7. How can we use Parquet files or SQL tables to store this data and read it back?
+    print("the seventh query is printing")
+    query7 = fire_calls_df.write.parquet("fire_ts_df.parquet", mode="overwrite")
+    parquet_schema = spark.read.parquet("fire_ts_df.parquet")
+    parquet_schema.printSchema()
+    """ Result for 7th query:
+
+    24/02/22 19:42:04 INFO ParquetWriteSupport: Initialized Parquet WriteSupport with Catalyst schema:
+{
+  "type" : "struct",
+  "fields" : [ {
+    "name" : "CallNumber",
+    "type" : "integer",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "UnitID",
+    "type" : "string",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "IncidentNumber",
+    "type" : "integer",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "CallType",
+    "type" : "string",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "CallDate",
+    "type" : "timestamp",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "WatchDate",
+    "type" : "string",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "CallFinalDisposition",
+    "type" : "string",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "AvailableDtTm",
+    "type" : "string",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "Address",
+    "type" : "string",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "City",
+    "type" : "string",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "Zipcode",
+    "type" : "integer",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "Battalion",
+    "type" : "string",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "StationArea",
+    "type" : "string",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "Box",
+    "type" : "string",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "OriginalPriority",
+    "type" : "string",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "Priority",
+    "type" : "string",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "FinalPriority",
+    "type" : "integer",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "ALSUnit",
+    "type" : "boolean",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "CallTypeGroup",
+    "type" : "string",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "NumAlarms",
+    "type" : "integer",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "UnitType",
+    "type" : "string",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "UnitSequenceInCallDispatch",
+    "type" : "integer",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "FirePreventionDistrict",
+    "type" : "string",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "SupervisorDistrict",
+    "type" : "string",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "Neighborhood",
+    "type" : "string",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "Location",
+    "type" : "string",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "RowID",
+    "type" : "string",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "Delay",
+    "type" : "float",
+    "nullable" : true,
+    "metadata" : { }
+  } ]
+}
+and corresponding Parquet message type:
+message spark_schema {
+  optional int32 CallNumber;
+  optional binary UnitID (STRING);
+  optional int32 IncidentNumber;
+  optional binary CallType (STRING);
+  optional int96 CallDate;
+  optional binary WatchDate (STRING);
+  optional binary CallFinalDisposition (STRING);
+  optional binary AvailableDtTm (STRING);
+  optional binary Address (STRING);
+  optional binary City (STRING);
+  optional int32 Zipcode;
+  optional binary Battalion (STRING);
+  optional binary StationArea (STRING);
+  optional binary Box (STRING);
+  optional binary OriginalPriority (STRING);
+  optional binary Priority (STRING);
+  optional int32 FinalPriority;
+  optional boolean ALSUnit;
+  optional binary CallTypeGroup (STRING);
+  optional int32 NumAlarms;
+  optional binary UnitType (STRING);
+  optional int32 UnitSequenceInCallDispatch;
+  optional binary FirePreventionDistrict (STRING);
+  optional binary SupervisorDistrict (STRING);
+  optional binary Neighborhood (STRING);
+  optional binary Location (STRING);
+  optional binary RowID (STRING);
+  optional float Delay;
+}
+
+
+24/02/22 19:42:04 INFO ParquetWriteSupport: Initialized Parquet WriteSupport with Catalyst schema:
+{
+  "type" : "struct",
+  "fields" : [ {
+    "name" : "CallNumber",
+    "type" : "integer",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "UnitID",
+    "type" : "string",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "IncidentNumber",
+    "type" : "integer",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "CallType",
+    "type" : "string",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "CallDate",
+    "type" : "timestamp",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "WatchDate",
+    "type" : "string",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "CallFinalDisposition",
+    "type" : "string",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "AvailableDtTm",
+    "type" : "string",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "Address",
+    "type" : "string",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "City",
+    "type" : "string",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "Zipcode",
+    "type" : "integer",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "Battalion",
+    "type" : "string",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "StationArea",
+    "type" : "string",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "Box",
+    "type" : "string",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "OriginalPriority",
+    "type" : "string",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "Priority",
+    "type" : "string",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "FinalPriority",
+    "type" : "integer",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "ALSUnit",
+    "type" : "boolean",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "CallTypeGroup",
+    "type" : "string",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "NumAlarms",
+    "type" : "integer",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "UnitType",
+    "type" : "string",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "UnitSequenceInCallDispatch",
+    "type" : "integer",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "FirePreventionDistrict",
+    "type" : "string",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "SupervisorDistrict",
+    "type" : "string",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "Neighborhood",
+    "type" : "string",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "Location",
+    "type" : "string",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "RowID",
+    "type" : "string",
+    "nullable" : true,
+    "metadata" : { }
+  }, {
+    "name" : "Delay",
+    "type" : "float",
+    "nullable" : true,
+    "metadata" : { }
+  } ]
+}
+and corresponding Parquet message type:
+message spark_schema {
+  optional int32 CallNumber;
+  optional binary UnitID (STRING);
+  optional int32 IncidentNumber;
+  optional binary CallType (STRING);
+  optional int96 CallDate;
+  optional binary WatchDate (STRING);
+  optional binary CallFinalDisposition (STRING);
+  optional binary AvailableDtTm (STRING);
+  optional binary Address (STRING);
+  optional binary City (STRING);
+  optional int32 Zipcode;
+  optional binary Battalion (STRING);
+  optional binary StationArea (STRING);
+  optional binary Box (STRING);
+  optional binary OriginalPriority (STRING);
+  optional binary Priority (STRING);
+  optional int32 FinalPriority;
+  optional boolean ALSUnit;
+  optional binary CallTypeGroup (STRING);
+  optional int32 NumAlarms;
+  optional binary UnitType (STRING);
+  optional int32 UnitSequenceInCallDispatch;
+  optional binary FirePreventionDistrict (STRING);
+  optional binary SupervisorDistrict (STRING);
+  optional binary Neighborhood (STRING);
+  optional binary Location (STRING);
+  optional binary RowID (STRING);
+  optional float Delay;
+}
+
+ |-- CallNumber: integer (nullable = true)
+ |-- UnitID: string (nullable = true)
+ |-- IncidentNumber: integer (nullable = true)
+ |-- CallType: string (nullable = true)
+ |-- CallDate: timestamp (nullable = true)
+ |-- WatchDate: string (nullable = true)
+ |-- CallFinalDisposition: string (nullable = true)
+ |-- AvailableDtTm: string (nullable = true)
+ |-- Address: string (nullable = true)
+ |-- City: string (nullable = true)
+ |-- Zipcode: integer (nullable = true)
+ |-- Battalion: string (nullable = true)
+ |-- StationArea: string (nullable = true)
+ |-- Box: string (nullable = true)
+ |-- OriginalPriority: string (nullable = true)
+ |-- Priority: string (nullable = true)
+ |-- FinalPriority: integer (nullable = true)
+ |-- ALSUnit: boolean (nullable = true)
+ |-- CallTypeGroup: string (nullable = true)
+ |-- NumAlarms: integer (nullable = true)
+ |-- UnitType: string (nullable = true)
+ |-- UnitSequenceInCallDispatch: integer (nullable = true)
+ |-- FirePreventionDistrict: string (nullable = true)
+ |-- SupervisorDistrict: string (nullable = true)
+ |-- Neighborhood: string (nullable = true)
+ |-- Location: string (nullable = true)
+ |-- RowID: string (nullable = true)
+ |-- Delay: float (nullable = true)
+    """
